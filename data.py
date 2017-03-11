@@ -14,9 +14,14 @@ handle text file
     no empty line between them
 '''
 
+import sys
 import re
 # support cmp keyword in sort
 from functools import cmp_to_key
+
+from .toolKit import keyWrap,\
+                     strDelIn, strInsert,\
+                     listFlat
 
 class Data:
     '''
@@ -28,12 +33,14 @@ class Data:
                         .copy().sort()
     '''
     def __init__(self, filename=None, types=None,
+                       name='',
                        pkey=0):
         '''
         all data is read in as string by default
         pkey: primary key, same role as in database
         '''
         self.pkey=pkey
+        self.name=name
 
         if filename==None:
             self.head=[]
@@ -48,9 +55,16 @@ class Data:
                 if line[0]!='#':
                     break
 
+            # fill body
             self.body=[line.split()]
             for line in f:
                 self.body.append(line.split())
+
+            # check width of data
+            for line in self.body:
+                if len(line)!=len(self.head):
+                    raise Exception('mismatch between '+
+                                    'head and body')
 
             self.types='s'*len(self.head)
 
@@ -64,8 +78,11 @@ class Data:
         elif prop=='width':
             return len(self.head)
 
+    def __len__(self):
+        return self.len
+
     # get number of column giving number/string/None
-    def getCol(self, col=None):
+    def getColInd(self, col=None):
         if col==None:
             return self.pkey
         elif type(col)==str:
@@ -74,20 +91,94 @@ class Data:
 
     # del column
     def delCol(self, col):
-        col=self.getCol(col)
+        col=self.getColInd(col)
         del self.head[col]
 
         for line in self.body:
             del line[col]
 
+        self.types=strDelIn(self.types, col)
+
+    # insert column
+    def insertCol(self, clist, index=0,
+                        ctype=None, cname=None):
+        '''
+        ctype: str/callable
+            change col to specify format
+            or it can be a function to change element in clist
+        index: int
+            insert new column befor original index column
+        cname: str
+            if None: 'col'+index
+        '''
+        if len(clist)!=self.len:
+            raise Exception('mismatched length to insert')
+
+        typeNames=set()
+        if ctype==str:
+            typeNames.add(typeNames)
+            ctype=self.parseTypes(ctype)
+
+        if callable(ctype):
+            clist=map(ctype, clist)
+        elif ctype!=None:
+            raise TypeError('ctype must be None/str/callable,'+
+                            ' found %s' % type(ctype).__name__)
+
+        # handle body
+        for c, line in zip(clist, self.body):
+            line.insert(index, c)
+            typeNames.add(self.getTypeName(c))
+
+        if len(typeNames)!=1:
+            raise Exception('mismatch type of inserted column')
+
+        # handle types
+        self.types=strInsert(self.types,
+                             typeNames.pop(), index)
+
+        # handle head
+        if cname==None:
+            cname='col%i' % index
+
+        if type(cname)!=str:
+            raise TypeError('head name must be str,'+
+                            ' found %s' % type(cname).__name__)
+
+        self.head.insert(index, cname)
+
+        # handle pkey
+        if index<=self.pkey:
+            self.pkey+=1
+
+        return self
+
+    def appendCol(self, col, *args, **keywords):
+        # call insertCol
+        return self.insertCol(col, self.width,
+                              *args, **keywords)
+
+    # get name of type for a given data
+    def getTypeName(self, d):
+        if type(d)==int:
+            return 'i'
+        elif type(d)==float:
+            return 'f'
+        elif type(d)==str:
+            return 's'
+        else:
+            raise Exception('unsupported type for data')
+
     # copy
-    def copy(self):
-        result=Data(pkey=self.pkey)
+    def copy(self, name=''):
+        result=Data(name=name, pkey=self.pkey)
 
         result.head=self.head.copy()
 
         for line in self.body:
             result.body.append(line.copy())
+
+        result.types=self.types
 
         return result
 
@@ -134,7 +225,7 @@ class Data:
         '''
         set type for an column
         '''
-        col=self.getCol(col)
+        col=self.getColInd(col)
 
         if self.types[col]==dtype:
             return self
@@ -206,23 +297,137 @@ class Data:
         else:
             raise Exception('unsupported data type')
 
+    # set name of data
+    def setName(self, name):
+        self.name=name
+        return self
+
+    # make head name unique
+    def uniqColName(self):
+        names={}
+        for i, n in enumerate(self.head):
+            if n not in names:
+                names[n]=0
+            else:
+                self.head[i]='%s%i' % (n, names[n])
+                names[n]+=1
+        return self
+
     # set name of column
     def setColName(self, col, name):
-        col=self.getCol(col)
-
+        col=self.getColInd(col)
         self.head[col]=name
+        return self
 
+    def getWrapColName(self, wrapper=None, skip=None):
+        '''
+        skip: columns to skip wrapper,
+            default: skip self.pkey
+            []: wrap all
+            [col1, col2, ...]: 
+        '''
+        if wrapper==None:
+            return self.head.copy()
+
+        wrapper=keyWrap(wrapper)
+        result=[wrapper(k) for k in self.head]
+
+        if skip==None:
+            skip=[self.pkey]  # default
+        elif not hasattr(skip, '__iter__'):
+            skip=[skip]
+
+        for col in skip:
+            col=self.getColInd(col)
+            result[col]=self.head[col]
+
+        return result
+
+    def wrapColName(self, wrapper=None, skip=None):
+        '''
+        call getWrapColName
+        change in place
+        '''
+        if wrapper==None:
+            return self
+
+        self.head=self.getWrapColName(wrapper, skip)
         return self
 
     # select special column
-    def select(self, col):
-        col=self.getCol(col)
+    # cols: str/int/iterable
+    #     int: return list
+    #     iterable, not str: return list
+    #     str:
+    #         comma-separated: return Data type
+    #             comma in the end of string would be ignored
+    #         no comma: return a list
+    #             a special format: 'col ,': return Data type
+    #             simulating syntax of tuple:
+    #                 e.g. (a, ) vs. (a)
+    def parseSelect(self, cols):
+        if type(cols)==int:
+            return cols
+        elif type(cols)==str:
+            s=cols.strip()
+            if s.find(',')==-1:
+                return self.getColInd(s)
+            else:
+                cols=s.split(',')
+                if cols[-1]=='':
+                    del cols[-1]
+                indices=[]
+                for c in cols:
+                    c=c.strip()
+                    indices.append(self.getColInd(c))
+                return indices
+        elif hasattr(cols, '__iter__'):
+            return listFlat([self.parseSelect(i)
+                                 for i in cols])
+        else:
+            raise Exception('wrong type for select')
 
-        result=[]
+    def select(self, cols, asName='', pkey=False):
+        '''
+        cols: str/int/list/tuple
+        pkey: whether or not include primary key
+              if true and pkey is not in selected cols
+                 add pkey as the 1st column
+        '''
+        cols=self.parseSelect(cols)
+        asList=False
+        if type(cols)==int:
+            cols=[cols]
+            asList=True
+
+        body=[]
         for line in self.body:
-            result.append(line[col])
+            body.append([line[i] for i in cols])
+
+        if asList:
+            return listFlat(body)
+
+        result=Data(name=asName)
+        result.body=body
+        result.head=[self.head[i] for i in cols]
+        result.types=''.join([self.types[i] for i in cols])
+
+        # handle pkey
+        if self.pkey in cols:
+            result.pkey=cols.index(self.pkey)
+        elif pkey:
+            result.insertCol(self.simpleSelect(),
+                             cname=self.head[self.pkey])
+            result.pkey=0
 
         return result
+
+    def simpleSelect(self, col=None):
+        '''
+        just select one column and return list
+        '''
+        col=self.getColInd(col)
+        return [line[col] for line in self.body]
 
     # sort lines
     def sort(self, *args, **keywords):
@@ -258,7 +463,7 @@ class Data:
         comp: comparing funcion
         reverse: reverse order if True
         '''
-        col=self.getCol(col)
+        col=self.getColInd(col)
 
         if comp!=None:
             # in python3 cmp keyword is removed entirely
@@ -276,7 +481,7 @@ class Data:
 
     # use dictionary to represent data
     def toDict(self, col=None):
-        col=self.getCol(col)
+        col=self.getColInd(col)
 
         result={}
         for line in self.body:
@@ -287,19 +492,27 @@ class Data:
 
     # extend with another block of data
     def extend(self, data2, col1=None,
-                            col2=None):
+                            col2=None,
+                            wrap1=None,
+                            wrap2=None):
         '''
         col1/2: column to match
+        wrap1/2: wrap name of column to avoid replicated name
         '''
-        col1=self.getCol(col1)
-        col2=data2.getCol(col2)
+        col1=self.getColInd(col1)
+        col2=data2.getColInd(col2)
 
         dataDict2=data2.toDict(col2)
 
-        head2=data2.head
+        # join head
+        head2=data2.getWrapColName(wrap2, col2)
         del head2[col2]
 
+        self.wrapColName(wrap1, col1)
         self.head.extend(head2)
+
+        # join types
+        self.types+=strDelIn(data2.types, col2)
 
         # line number to be deleted
         body=[]
@@ -312,3 +525,34 @@ class Data:
         self.body=body
 
         return self
+
+    # print function
+    def strLines(self, precise=4):
+        '''
+        precise: for print of float number
+        '''
+        yield '#'+' '.join(self.head)
+
+        formats=[]
+        for f in self.types:
+            if f=='f':
+                formats.append('%%.%if' % precise)
+            else:
+                formats.append('%%%s' % f)
+        formats=' '.join(formats)
+
+        #print(formats)
+        for row in self.body:
+            yield formats % tuple(row)
+
+    def write(self, filename=None, precise=4):
+        if filename==None:
+            f=sys.stdout
+        else:
+            f=open(filename, 'w')
+
+        for line in self.strLines(precise):
+            f.write(line+'\n')
+
+        if filename!=None:
+            f.close()
