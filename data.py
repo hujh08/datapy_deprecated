@@ -81,6 +81,9 @@ class Data:
     def __len__(self):
         return self.len
 
+    def __contains__(self, col):
+        return col in self.head
+
     # get number of column giving number/string/None
     def getColInd(self, col=None):
         if col==None:

@@ -113,8 +113,7 @@ class DataBase:
             if s[i]!='.':
                 continue
             tab, col=s[0:i], s[(i+1):]
-            if tab in self and \
-               col in self[tab].head:
+            if tab in self and col in self[tab]:
                 tabcols.append((tab, col))
 
         if len(tabcols)==0:
