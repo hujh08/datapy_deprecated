@@ -482,7 +482,28 @@ class Data:
 
         return body
 
-    # use dictionary to represent data
+    # reshape of Data
+    ## extract column as list
+    def toColList(self, cols=None):
+        '''
+        cols: same as select, but must let select return Data
+            return all cols as default
+        '''
+        data=self.body
+        if cols!=None:
+            data=self.select(cols, pkey=False).body
+
+        if not data:
+            return []
+            
+        result=[[] for i in range(len(data[0]))]
+        for line in data:
+            for i, col in enumerate(line):
+                result[i].append(col)
+
+        return result
+
+    ## use dictionary to represent data
     def toDict(self, col=None):
         col=self.getColInd(col)
 

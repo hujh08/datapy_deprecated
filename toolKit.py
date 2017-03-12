@@ -17,7 +17,10 @@ def keyWrap(key=None, sep=''):
         when key is None, used to join arguments
     '''
     if key==None:
-        key=lambda *x: sep.join(x)
+        if sep==None:
+            key=lambda x: x
+        else:
+            key=lambda *x: sep.join(x)
     elif type(key)==str:
         # if omitting key=key, key in lambda is global
         if key.find('%')!=-1:
@@ -46,3 +49,24 @@ def listFlat(l, skipTuple=False):
         else:
             result.extend(listFlat(ele))
     return result
+
+# make lists has the same length
+def listBroadCast(lcontainer):
+    if len(lcontainer)<2:
+        return lcontainer
+
+    lLens=filter(lambda i: i!=1, map(len, lcontainer))
+    lLens=list(lLens)
+    if not lLens:
+        return lcontainer
+
+    l=lLens[0]
+    for i in lLens[1:]:
+        if i!=l:
+            raise Exception('mismatch length for lists')
+
+    for i, ele in enumerate(lcontainer):
+        if len(ele)==1:
+            lcontainer[i]*=l
+
+    return lcontainer

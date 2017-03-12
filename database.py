@@ -19,7 +19,8 @@ future work:
 from functools import partial
 
 from .data import Data
-from .toolKit import keyWrap, listFlat
+from .toolKit import keyWrap, listFlat, listBroadCast
+from .plot import Plot
 
 class DataBase:
     def __init__(self, fnames=None,
@@ -63,6 +64,15 @@ class DataBase:
             # names of table
             return [t.name for t in self.tables]
 
+    '''
+    def __getitem__(self, key):
+        if type(key)==int or key in self:
+            return self.tables[self.getTabInd(key)]
+        elif type(key)==str or key.find('.')!=-1:
+            return self.select(key)
+        else:
+            return TypeError('wrong type for DataBase')
+    '''
     def __getitem__(self, key):
         return self.tables[self.getTabInd(key)]
 
@@ -107,6 +117,7 @@ class DataBase:
         return index
 
     # extract names of table and columns from string
+    # when more than one comma exist, try all combinations
     def extTabCol(self, s):
         tabcols=[]
         for i in range(len(s)-1, -1, -1):
@@ -207,11 +218,17 @@ class DataBase:
         return result
 
     # visualization
-    def plotScatter(self, xCols, yCols,
-                          xWraps=None,
-                          yWraps=None):
+    def plot(self, xcols, ycols,
+                   xecols=None, yecols=None,
+                   wrap=None,
+                   xwrap=None, ywrap=None,
+                   xewrap=None, yewrap=None,
+                   notDB='',
+                   multip=True, nRowCol=None,
+                   sameSample=False):
         '''
-        x/yCols, x/yWraps:
+        wrap: default wrap if x/y/xe/yewrap is None
+        x/ycols, x/ywrap:
             determine cols to plot scatter graphic
             like fwrap/wrap in __init__
 
@@ -220,6 +237,61 @@ class DataBase:
                 which are then joined with '.'
             e.g.
                 table1.col1 ==> Column col1 in Table table1
+        notDB: string
+            should only contain 'x', 'y', 'xe', 'ye'
+            show whether x/y/xe/ye use given data,
+                not DataBase data
+        sameSample: bool
+            if true, all subplots correspoind to same sample
         '''
-        pass
+        datas=[]
+        useDB=[]
+        wraps=[xwrap, ywrap, xewrap, yewrap]
+        xycols=[xcols, ycols, xecols, yecols]
+        dbmark=['x', 'y', 'xe', 'ye']
+
+        # default wrap
+        if wrap!=None:
+            for i, w in enumerate(wraps):
+                if w==None:
+                    wraps[i]=wrap
+
+        for i in range(4):
+            s, w, cols=dbmark[i], wraps[i], xycols[i]
+            if cols!=None and s not in notDB:
+                if w!=None:
+                    w=keyWrap(w)
+                    cols=[w(c) for c in cols]
+                useDB.append(i)
+            datas.append(cols)
+
+        # match data from database using pkey
+        dbcols=[datas[i] for i in useDB]
+        if sameSample:
+            dbcols=[[i] for i in listFlat(dbcols)]
+        else:
+            listBroadCast(dbcols)
+
+        DBdatas=[]
+        for cols in zip(*dbcols):
+            l=len(cols)
+            datacol=self.select(list(cols)).toColList()
+            DBdatas.append(datacol[-l:])
+
+        if sameSample:
+            indnow=0
+            DBdatas=DBdatas[0]
+            # data used to replace corresponding in datas
+            repData=[]
+            for i in useDB:
+                l=len(datas[i])
+                repData.append(DBdatas[indnow:(indnow+l)])
+                indnow+=l
+        else:
+            repData=zip(*DBdatas)
+
+        for i, xydata in zip(useDB, repData):
+            datas[i]=list(xydata)
+
+        return Plot(*datas, multip=multip, nRowCol=nRowCol)
 
