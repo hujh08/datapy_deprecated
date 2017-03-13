@@ -46,7 +46,10 @@ class Plot:
             elif not hasattr(y, '__iter__') and \
                      hasattr(x, '__iter__'):
                 ydatas[i]=[y]*len(x)
-            # when x/y are both int/float, plt can handle this
+            elif not hasattr(y, '__iter__') and \
+                 not hasattr(x, '__iter__'):
+                 xdatas[i]=[x]
+                 ydatas[i]=[y]
 
         self.xdatas=xdatas
         self.ydatas=ydatas
@@ -58,10 +61,22 @@ class Plot:
             if errs==None:
                 xyerrs.append([None]*self.ndata)
                 continue
-            if len(errs)==1:
-                xyerrs.append(errs*self.ndata)
+            if not hasattr(errs, '__iter__'):
+                errs=[errs]*self.ndata
+            elif len(errs)==1:
+                errs*=self.ndata
             elif len(errs)!=self.ndata:
                 raise Exception('wrong length for x/yerr')
+
+            for i in range(self.ndata):
+                if errs[i]==None:
+                    continue
+                if not hasattr(errs[i], '__iter__'):
+                    errs[i]=[errs[i]]
+                if len(errs[i])==1:
+                    errs[i]*=len(self.xdatas[i])
+            xyerrs.append(errs)
+
         self.xerrs, self.yerrs=xyerrs
 
         # set matplotlib
@@ -79,17 +94,74 @@ class Plot:
                              sharex=True, sharey=True)
             self.fig.subplots_adjust(hspace=0.001, wspace=0.001)
             self.axes=self.axes.flatten()
-
+            self._axes=self.axes # real, no replicated axes
         else:
             self.fig=plt.figure()
             ax=self.fig.add_subplot(111)
             self.axes=[ax]*self.ndata
+            self._axes=[ax] # real, no replicated axes
 
+    # convenient method to access data
+    def __getattr__(self, prop):
+        if prop in ['xlim', 'ylim']:
+            prop='get_%s' % prop
+            return getattr(self._axes[0], prop)()
+
+    # plot functions
+    ## scatter
     def plotScatter(self, color='blue'):
-        for ax, xdata, ydata in zip(self.axes,
-                                    self.xdatas,
-                                    self.ydatas):
-            ax.scatter(xdata, ydata, color=color)
+        for i in range(self.ndata):
+            kwargs={'color': color,
+                    'linestyle': 'none',
+                    'marker': 'o'}
+            ax, xdata, ydata, xerrs, yerrs=\
+                self.axes[i],\
+                self.xdatas[i], self.ydatas[i],\
+                self.xerrs[i],  self.yerrs[i]
+
+            if xerrs!=None:
+                kwargs['xerr']=xerrs
+            if yerrs!=None:
+                kwargs['yerr']=yerrs
+
+            ax.errorbar(xdata, ydata, **kwargs)
+        return self
+
+    # set x/ylim
+    def set_xlim(self, xlim):
+        for ax in self._axes:
+            ax.set_xlim(xlim)
+        return self
+
+    def set_ylim(self, ylim):
+        for ax in self._axes:
+            ax.set_ylim(ylim)
+        return self
+
+    # add a baseline
+    def addLine(self, *args, **kwargs):
+        for ax in self._axes:
+            ax.plot(*args, **kwargs)
+        return self
+
+    def addEqline(self, color='black'):
+        xlim=self.xlim
+        ylim=self.ylim
+        minxy=min(xlim[0], ylim[0])
+        maxxy=max(xlim[1], ylim[1])
+        self.addLine([minxy, maxxy], [minxy, maxxy],
+                     color=color)
+        return self
+
+    def addHline(self, base=0, color='black'):
+        # add horizental line
+        self.addLine(self.xlim, [base, base], color=color)
+        return self
+
+    def addVline(self, base=0, color='black'):
+        # add vertical line
+        self.addLine([base, base], self.ylim, color=color)
+        return self
 
     def save(self, figname=None):
         if figname==None:

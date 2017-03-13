@@ -218,16 +218,21 @@ class DataBase:
         return result
 
     # visualization
-    def plot(self, xcols, ycols,
-                   xecols=None, yecols=None,
-                   wrap=None,
+    def plot(self, xcols, ycols, *args,
+                   #xecols=None, yecols=None,
+                   wrap=None, ewrap=None,
                    xwrap=None, ywrap=None,
                    xewrap=None, yewrap=None,
                    notDB='',
                    multip=True, nRowCol=None,
-                   sameSample=False):
+                   sameSample=False,
+                   **kwargs):
         '''
         wrap: default wrap if x/y/xe/yewrap is None
+        ewrap: default wrap for xe/yewrap
+        xe/yecols: bool/iterable
+            collected in args/kwargs
+            if bool: true, same as x/ycols
         x/ycols, x/ywrap:
             determine cols to plot scatter graphic
             like fwrap/wrap in __init__
@@ -238,24 +243,57 @@ class DataBase:
             e.g.
                 table1.col1 ==> Column col1 in Table table1
         notDB: string
-            should only contain 'x', 'y', 'xe', 'ye'
+            should only contain 'xc', 'yc', 'xe', 'ye'
             show whether x/y/xe/ye use given data,
                 not DataBase data
         sameSample: bool
             if true, all subplots correspoind to same sample
         '''
+        # handle xe/yecols
+        if len(args)==1:
+            xecols=args[0]
+            if 'xecols' in kwargs:
+                raise TypeError('got multiple values '+
+                                'for argument xecols')
+            if 'yecols' in kwargs:
+                yecols=kwargs['yecols']
+            else:
+                yecols=args[0]
+        elif len(args)>1:
+            xecols, yecols=args[0:2]
+        else:
+            xecols=yecols=None
+            if 'xecols' in kwargs:
+                xecols=kwargs['xecols']
+            if 'yecols' in kwargs:
+                yecols=kwargs['yecols']
+
+        # start main work
         datas=[]
         useDB=[]
         wraps=[xwrap, ywrap, xewrap, yewrap]
         xycols=[xcols, ycols, xecols, yecols]
-        dbmark=['x', 'y', 'xe', 'ye']
+        dbmark=['xc', 'yc', 'xe', 'ye']
+
+        # handle bool type xe/yecols
+        for i in range(2, 4):
+            if type(xycols[i])==bool:
+                if xycols[i]:
+                    xycols[i]=xycols[i-2]
+                else:
+                    xycols[i]=None
 
         # default wrap
+        if ewrap!=None:
+            for i in range(2, 4):
+                if wraps[i]==None:
+                    wraps[i]=ewrap
         if wrap!=None:
-            for i, w in enumerate(wraps):
-                if w==None:
+            for i in range(4):
+                if wraps[i]==None:
                     wraps[i]=wrap
 
+        # exert wrap
         for i in range(4):
             s, w, cols=dbmark[i], wraps[i], xycols[i]
             if cols!=None and s not in notDB:
@@ -264,6 +302,9 @@ class DataBase:
                     cols=[w(c) for c in cols]
                 useDB.append(i)
             datas.append(cols)
+
+        if not useDB:
+            return Plot(*datas, multip=multip, nRowCol=nRowCol)
 
         # match data from database using pkey
         dbcols=[datas[i] for i in useDB]
