@@ -250,17 +250,28 @@ class DataBase:
             if true, all subplots correspoind to same sample
         '''
         # handle xe/yecols
+        for k in kwargs:
+            if k not in ['xecols', 'yecols']:
+                raise Exception('unexpected argument [%s]' % k)
         if len(args)==1:
             xecols=args[0]
             if 'xecols' in kwargs:
-                raise TypeError('got multiple values '+
-                                'for argument xecols')
+                raise TypeError('plot() '+
+                                'got multiple values '+
+                                'for argument [xecols]')
             if 'yecols' in kwargs:
                 yecols=kwargs['yecols']
             else:
                 yecols=args[0]
         elif len(args)>1:
-            xecols, yecols=args[0:2]
+            xecols, yecols=args
+            if len(kwargs)!=0:
+                argnames=', '.join(kwargs.keys())
+                raise TypeError('plot() '+
+                                'got multiple values '+
+                                'for argument [%s]' %
+                                argnames)
+
         else:
             xecols=yecols=None
             if 'xecols' in kwargs:

@@ -163,6 +163,29 @@ class Plot:
         self.addLine([base, base], self.ylim, color=color)
         return self
 
+    # mark panels or set legend
+    def mark(self, mark, loc=None, **kwargs):
+        if len(self._axes)==1:
+            if loc==None:
+                loc='upper left'
+            ax=self._axes[0]
+            # bbox_transform is ax.transAxes by default
+            ax.legend(ax.get_lines(), mark, loc=loc)
+        else:
+            if loc==None:
+                loc=(0.1, 0.8)
+            for ax, m in zip(self._axes, mark):
+                #ax.legend(ax.get_lines(), [m],
+                #          loc=loc, **kwargs)
+                ax.annotate(m,
+                            xy=loc,
+                            xycoords='axes fraction',
+                            #identical to
+                            #xycoords=ax.transAxes,
+                            **kwargs)
+        return self
+
+    # savefig or just show
     def save(self, figname=None):
         if figname==None:
             self.fig.show()
