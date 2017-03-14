@@ -4,6 +4,8 @@
 some auxiliary functions/classes
 '''
 
+#import re
+
 # return function used to wrap an input string
 #     which has no keyword arguments
 def keyWrap(key=None, sep=''):
@@ -70,3 +72,12 @@ def listBroadCast(lcontainer):
             lcontainer[i]*=l
 
     return lcontainer
+
+# escape all characters which are special in regexp
+#specRe=re.compile(r'(\.)')
+def reEscap(s):
+    if type(s)==list or type(s)==tuple:
+        return [reEscap(i) for i in s]
+
+    #return specRe.sub(r'\\\1', s)
+    return s.replace('.', r'\.')

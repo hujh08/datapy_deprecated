@@ -163,7 +163,7 @@ class Plot:
         self.addLine([base, base], self.ylim, color=color)
         return self
 
-    # mark panels or set legend
+    # mark panels or draw legend
     def mark(self, mark, loc=None, **kwargs):
         if len(self._axes)==1:
             if loc==None:

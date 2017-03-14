@@ -17,12 +17,25 @@ future work:
 '''
 
 from functools import partial
+import re
+import math
 
 from .data import Data
-from .toolKit import keyWrap, listFlat, listBroadCast
+from .toolKit import keyWrap, \
+                     listFlat, listBroadCast, \
+                     reEscap
+from .SQLKit import _markAS, checkName
 from .plot import Plot
 
 class DataBase:
+    # supported function used in selection
+    SQLFunc={
+        'sqrt': math.sqrt,
+        'hypot': math.hypot,
+        '_markAS': _markAS,
+    }
+
+    # __init__
     def __init__(self, fnames=None,
                        tables=None,
                        pcols=0,   # primary key like SQL
@@ -42,6 +55,9 @@ class DataBase:
         self.mapNames={}  # map from name to order
         # one auxiliary structure
         self._alias={}
+
+        # functions for select
+        self.SQLFunc={}
 
         if fnames!=None:
             wrap=keyWrap(wrap)
@@ -83,12 +99,12 @@ class DataBase:
         return False
 
     # add table. If existed, overwrite
-    def addFile(self, name, fname, pcol):
+    def addFile(self, name, fname, pcol=0):
         d=Data(fname, name=name, pkey=pcol)
         return self.addTable(d)
 
     def addTable(self, table):
-        name=table.name
+        name=checkName(table.name)
         if name not in self.mapNames:
             self.mapNames[name]=len(self.tables)
             self.tables.append(table)
@@ -99,11 +115,32 @@ class DataBase:
 
     # alias name of table
     def alias(self, name, alias):
+        checkName(alias)
+        if alias in self:
+            raise Exception('table %s exists' % alias)
         self._alias[alias]=name
+        return self
+
+    def delalias(self, alias):
+        del self._alias[alias]
         return self
 
     def aliasClear(self):
         self._alias.clear()
+        return self
+
+    # register function for select
+    def regFunc(self, name, func):
+        self.SQLFunc[name]=func
+        return self
+
+    def delFunc(self, name):
+        del self.SQLFunc[name]
+        return self
+
+    def clearFunc(self):
+        self.SQLFunc.clear()
+        return self
 
     # get order of table
     def getTabInd(self, index):
@@ -116,24 +153,19 @@ class DataBase:
                 raise Exception('no table named %s' % index)
         return index
 
+    # return Data type
+    def getTab(self, index):
+        return self.tables[self.getTabInd(index)]
+
     # extract names of table and columns from string
     # when more than one comma exist, try all combinations
     def extTabCol(self, s):
-        tabcols=[]
-        for i in range(len(s)-1, -1, -1):
-            if s[i]!='.':
-                continue
-            tab, col=s[0:i], s[(i+1):]
-            if tab in self and col in self[tab]:
-                tabcols.append((tab, col))
-
-        if len(tabcols)==0:
-            raise Exception('wrong format to specify column')
-        elif len(tabcols)>1:
-            tcInfo=['\t%s %s' % tabcol for tabcol in tabcols]
-            tcInfo='\n'.join(tcInfo)
-            raise Exception('ambiguous format. Found:\n'+tcInfo)
-        return tabcols[0]
+        tab, col=s.split('.')
+        if tab not in self:
+            raise Exception('tab %s not exist' % tab)
+        if col not in self.getTab(tab):
+            raise Exception('col %s not exist' % col)
+        return tab, col
 
     # select specified columns
     # cols: tuple/list/str
@@ -148,33 +180,36 @@ class DataBase:
     #                 e.g. (a, ) vs. (a)
     def parseSelect(self, cols):
         if type(cols)==tuple:
-            return cols
+            return cols, None, None
         elif type(cols)==str:
             s=cols.strip()
+            asData=True
             if s.find(',')==-1:
-                return self.extTabCol(s)
-            else:
-                cols=s.split(',')
-                if cols[-1]=='':
-                    del cols[-1]
-                tabcols=[]
-                for c in cols:
-                    c=c.strip()
-                    tabcols.append(self.extTabCol(c))
-                return tabcols
-        elif type(cols)==list:
-            return listFlat([self.parseSelect(i)
-                                 for i in cols],
-                            skipTuple=True)
+                asData=False
+
+            cols, lineFunc, HeadFunc=self.SQLparser(s)
+
+            tabcols=[]
+            for c in cols:
+                tabcols.append(self.extTabCol(c))
+
+            if not asData:
+                tabcols=tabcols[0]
+            return tabcols, lineFunc, HeadFunc
+        #elif type(cols)==list:
+        #    return listFlat([self.parseSelect(i)
+        #                         for i in cols],
+        #                    skipTuple=True)
         else:
             raise Exception('wrong type for select')
 
     def select(self, tabcols, asName=''):
-        cols=self.parseSelect(tabcols)
+        cols, lineFunc, HeadFunc=self.parseSelect(tabcols)
         if type(cols)==tuple:
             return self[cols[0]].select(cols[1])
 
         # collected adjecent cols in the same table
+        lencols=len(cols)
         tabcols=[(cols[0][0], [cols[0][1]])]
         for col in cols[1:]:
             if col[0]==tabcols[-1][0]:
@@ -186,7 +221,125 @@ class DataBase:
         for tab, cols in tabcols:
             r.tables.append(self[tab].select(cols, pkey=True))
 
-        return r.mergeAll(asName=asName, uniqCol=True)
+        r=r.mergeAll(asName=asName)
+
+        if lineFunc!=None:
+            # whether add primary key: yes=1, no=0
+            pkey=len(r.head)-lencols
+
+            # handle head
+            ## handle as syntax
+            headAs=HeadFunc(*r.body[0][pkey:])
+            head=[]
+            for h in headAs:
+                if type(h)!=_markAS:
+                    head.append('')
+                elif h.copy:
+                    head[-1]=r.head[h.name+pkey]
+                else:
+                    head[-1]=checkName(h.name)
+            ## handle empty head name
+            coln=0
+            for i, h in enumerate(head):
+                if not h:
+                    head[i]='col%i' % coln
+                    coln+=1
+            r.head[pkey:]=head
+
+            # handle body
+            for line in r.body:
+                line[pkey:]=lineFunc(*line[pkey:])
+
+            # handle types
+            r.types=r.getBodyTypes()
+
+        r.uniqColName()
+
+        return r
+
+    ## more complicated SQL syntax parser
+    ##    mainly operation on columns and 'as'
+    ## what we use is applying function eval
+    def SQLparser(self, s):
+        tabcols=self.tabColNames()
+        tcStr='|'.join(reEscap(tabcols))
+        tcRe=re.compile(r'(%s)' % tcStr)
+        cols=tcRe.findall(s)
+
+        # check whether we need to do complex parse
+        tcClean=tcRe.sub('', s)
+        tcClean=re.sub(r'[ ,]', '', tcClean)
+        if not tcClean:
+            return cols, None, None
+
+        cols=list(set(cols))
+
+        # replace tabcol with a temporary name
+        for i, col in enumerate(cols):
+            s=s.replace(col, 'var%i' % i)
+
+        # handle as
+        asRe=re.compile(r'\bas\s+([\w_][\w_\d]*)\s*(,|$)')
+        if asRe.search(s):
+            hds=asRe.sub(r', _markAS("\1")\2', s)
+            s=asRe.sub(r',', s) # remove as
+        else:
+            hds=s
+
+        # find simple query.
+        # support any brackets around it
+        fields=[]
+        varRe=re.compile(r'var(\d+)')
+        for q in hds.split(','):
+            q=q.strip()
+            varAll=varRe.findall(q)
+            if len(varAll)!=1:
+                fields.append(q)
+            else:
+                qclean=q.replace(' ','')
+                q1, i, q2=varRe.split(qclean)
+                q1clean=q1.replace('(','')
+                q2clean=q2.replace(')','')
+                if not q1clean and not q2clean and\
+                   q1.count('(')==q2.count(')'):
+                    fields.append('var%s' % i)
+                    fields.append('_markAS(%s, copy=1)' % i)
+                else:
+                    fields.append(q)
+        hds=', '.join(fields)
+
+        # eval to get function
+        lineFunc=self._eval(s, len(cols))
+        HeadFunc=self._eval(hds, len(cols))
+        return cols, lineFunc, HeadFunc
+
+    def _eval(self, src, argc, wrap='var%i'):
+        '''
+        convert expression to lambda string
+        '''
+        wrap=keyWrap(wrap)
+        # args string
+        args=', '.join([wrap(i) for i in range(argc)])
+        # use default kwargs to store local function
+        locargs=', '.join(['{0}={0}'.format(i)
+                                for i in self.SQLFunc.keys()])
+        # when no local
+        #     ',' in the end of args is like in tuple
+        lambdastr='lambda %s, %s: [%s]' % (args, locargs, src)
+
+        return eval(lambdastr, DataBase.SQLFunc, self.SQLFunc)
+
+    # all valid join of table and column
+    def tabColNames(self):
+        result=[]
+        tNames=list(self.mapNames.keys())+\
+               list(self._alias.keys())
+        for tname in tNames:
+            tab=self.getTab(tname)
+            tcformat='%s.%%s' % tname
+            for cname in tab.head:
+                result.append(tcformat % cname)
+        return result
 
     # merge all tables
     def mergeAll(self, asName='',
@@ -199,6 +352,8 @@ class DataBase:
             str: must be able used in wrap % (tab, col)
             callable: wrap(tab, col), return string
         '''
+        checkName(asName)
+
         result=self.tables[0].copy(name=asName)
 
         if wrap or wrapper!=None:
@@ -327,7 +482,8 @@ class DataBase:
         DBdatas=[]
         for cols in zip(*dbcols):
             l=len(cols)
-            datacol=self.select(list(cols)).toColList()
+            strcols=', '.join(cols)
+            datacol=self.select(strcols).toColList()
             DBdatas.append(datacol[-l:])
 
         if sameSample:
@@ -346,4 +502,3 @@ class DataBase:
             datas[i]=list(xydata)
 
         return Plot(*datas, multip=multip, nRowCol=nRowCol)
-

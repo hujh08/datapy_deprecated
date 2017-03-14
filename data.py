@@ -22,6 +22,7 @@ from functools import cmp_to_key
 from .toolKit import keyWrap,\
                      strDelIn, strInsert,\
                      listFlat
+from .SQLKit import checkName
 
 class Data:
     '''
@@ -49,7 +50,7 @@ class Data:
 
         with open(filename) as f:
             # name of columns
-            self.head=f.readline()[1:].split()
+            self.head=checkName(f.readline()[1:].split())
             # skip other comment line
             for line in f:
                 if line[0]!='#':
@@ -144,6 +145,8 @@ class Data:
         if cname==None:
             cname='col%i' % index
 
+        checkName(cname)
+
         if type(cname)!=str:
             raise TypeError('head name must be str,'+
                             ' found %s' % type(cname).__name__)
@@ -174,6 +177,7 @@ class Data:
 
     # copy
     def copy(self, name=''):
+        checkName(name)
         result=Data(name=name, pkey=self.pkey)
 
         result.head=self.head.copy()
@@ -300,8 +304,17 @@ class Data:
         else:
             raise Exception('unsupported data type')
 
+    # get types of body
+    def getBodyTypes(self):
+        types=[]
+        for c in self.body[0]:
+            types.append(self.getTypeName(c))
+
+        return ''.join(types)
+
     # set name of data
     def setName(self, name):
+        checkName(name)
         self.name=name
         return self
 
@@ -318,6 +331,7 @@ class Data:
 
     # set name of column
     def setColName(self, col, name):
+        checkName(name)
         col=self.getColInd(col)
         self.head[col]=name
         return self
@@ -355,6 +369,7 @@ class Data:
             return self
 
         self.head=self.getWrapColName(wrapper, skip)
+        checkName(self.head)
         return self
 
     # select special column
@@ -397,6 +412,8 @@ class Data:
               if true and pkey is not in selected cols
                  add pkey as the 1st column
         '''
+        checkName(asName)
+
         cols=self.parseSelect(cols)
         asList=False
         if type(cols)==int:
@@ -495,7 +512,7 @@ class Data:
 
         if not data:
             return []
-            
+
         result=[[] for i in range(len(data[0]))]
         for line in data:
             for i, col in enumerate(line):
@@ -531,6 +548,7 @@ class Data:
         # join head
         head2=data2.getWrapColName(wrap2, col2)
         del head2[col2]
+        checkName(head2)
 
         self.wrapColName(wrap1, col1)
         self.head.extend(head2)
