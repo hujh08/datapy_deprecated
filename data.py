@@ -499,6 +499,18 @@ class Data:
 
         return body
 
+    # filter
+    def filter(self, func, cols=0, asName=''):
+        result=Data(pkey=self.pkey, name=asName)
+        result.head=self.head
+        result.types=self.types
+
+        for line in self.body:
+            if func(line[cols]):
+                self.body.append(line)
+
+        return result
+
     # reshape of Data
     ## extract column as list
     def toColList(self, cols=None):
