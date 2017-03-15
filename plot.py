@@ -82,6 +82,9 @@ class Plot:
         # set matplotlib
         self.initFig(multip=multip, nRowCol=nRowCol)
 
+        # backup
+        self.backup()
+
     # initate setup of matplotlib
     def initFig(self, multip=True, nRowCol=None):
         # matplotlib object
@@ -107,6 +110,46 @@ class Plot:
             prop='get_%s' % prop
             return getattr(self._axes[0], prop)()
 
+    # backup data in order for filter
+    def backup(self):
+        self._xdatas, self._ydatas,\
+        self._xerrs, self._yerrs=\
+        self.xdatas, self.ydatas,\
+        self.xerrs, self.yerrs
+        return self
+
+    def restore(self):
+        self.xdatas, self.ydatas,\
+        self.xerrs, self.yerrs=\
+        self._xdatas, self._ydatas,\
+        self._xerrs, self._yerrs
+        return self
+
+    # filter data to plot
+    def filter(self, func):
+        '''
+        func: should have 4 arities,
+              and args' order is x, y, xe, ye
+                  e.g. lambda x, y, xe, ye: ... 
+        '''
+        xs, ys, xes, yes=[], [], [], []
+        for i in range(self.ndata):
+            xdata, ydata, xerr, yerr=\
+                self._xdatas[i], self._ydatas[i],\
+                self._xerrs[i],  self._yerrs[i]
+            x, y, xe, ye=[], [], [], []
+            for xye in zip(xdata, ydata, xerr, yerr):
+                if func(*xye):
+                    for l, ele in zip([x, y, xe, ye], xye):
+                        l.append(ele)
+            for l, ele in zip([xs, ys, xes, yes],
+                              [x, y, xe, ye]):
+                l.append(ele)
+        self.xdatas, self.ydatas,\
+        self.xerrs, self.yerrs=\
+            xs, ys, xes, yes
+        return self
+
     # plot functions
     ## scatter
     def plotScatter(self, color='blue'):
@@ -114,15 +157,15 @@ class Plot:
             kwargs={'color': color,
                     'linestyle': 'none',
                     'marker': 'o'}
-            ax, xdata, ydata, xerrs, yerrs=\
+            ax, xdata, ydata, xerr, yerr=\
                 self.axes[i],\
                 self.xdatas[i], self.ydatas[i],\
                 self.xerrs[i],  self.yerrs[i]
 
-            if xerrs!=None:
-                kwargs['xerr']=xerrs
-            if yerrs!=None:
-                kwargs['yerr']=yerrs
+            if xerr!=None:
+                kwargs['xerr']=xerr
+            if yerr!=None:
+                kwargs['yerr']=yerr
 
             ax.errorbar(xdata, ydata, **kwargs)
         return self
