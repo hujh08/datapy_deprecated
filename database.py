@@ -297,8 +297,16 @@ class DataBase:
         # support any brackets around it
         fields=[]
         varRe=re.compile(r'var(\d+)')
+        numQuote=0
         for q in hds.split(','):
             q=q.strip()
+            if numQuote<0:
+                raise Exception('wrong format for select')
+            if numQuote or\
+               q.count('(') != q.count(')'):
+                fields.append(q)
+                numQuote+=q.count('(')-q.count(')')
+                continue
             varAll=varRe.findall(q)
             if len(varAll)!=1:
                 fields.append(q)
