@@ -62,9 +62,11 @@ class Data:
                 self.body.append(line.split())
 
             # check width of data
-            for line in self.body:
+            for i, line in enumerate(self.body):
                 if len(line)!=len(self.head):
-                    raise Exception('mismatch between '+
+                    raise Exception('File "%s", ' % filename +
+                                    'in line %i:\n' % i +
+                                    '  mismatch between '+
                                     'head and body')
 
             self.types='s'*len(self.head)

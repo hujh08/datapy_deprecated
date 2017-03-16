@@ -60,19 +60,41 @@ class DataBase:
         self.SQLFunc={}
 
         if fnames!=None:
-            wrap=keyWrap(wrap)
-            fwrap=keyWrap(fwrap)
+            self.addFiles(fnames, tables,
+                          wrap, fwrap,
+                          pcols)
 
-            if tables==None:
-                tables=fnames
+    # add mulitply files
+    def addFiles(self, fnames, tables=None,
+                       wrap=None, fwrap=None,
+                       pcols=0):
+        wrap=keyWrap(wrap)
+        fwrap=keyWrap(fwrap)
 
-            if not hasattr(pcols, '__iter__'):
-                pcols=[pcols]*len(fnames)
+        if tables==None:
+            tables=fnames
 
-            for fname, table, p in zip(fnames, tables, pcols):
-                self.addFile(wrap(table),
-                             fwrap(fname),
-                             p)
+        if not hasattr(pcols, '__iter__'):
+            pcols=[pcols]*len(fnames)
+
+        for fname, table, p in zip(fnames, tables, pcols):
+            self.addFile(wrap(table), fwrap(fname),
+                         p)
+    # add one file
+    def addFile(self, name, fname, pcol=0):
+        d=Data(fname, name=name, pkey=pcol)
+        return self.addTable(d)
+
+    # add table. If existed, overwrite
+    def addTable(self, table):
+        name=checkName(table.name)
+        if name not in self.mapNames:
+            self.mapNames[name]=len(self.tables)
+            self.tables.append(table)
+        else:
+            tableNo=self.mapNames[name]
+            self.tables[tableNo]=table
+        return self
 
     # convenient method accessing table
     def __getattr__(self, prop):
@@ -97,21 +119,6 @@ class DataBase:
            member in self._alias:
             return True
         return False
-
-    # add table. If existed, overwrite
-    def addFile(self, name, fname, pcol=0):
-        d=Data(fname, name=name, pkey=pcol)
-        return self.addTable(d)
-
-    def addTable(self, table):
-        name=checkName(table.name)
-        if name not in self.mapNames:
-            self.mapNames[name]=len(self.tables)
-            self.tables.append(table)
-        else:
-            tableNo=self.mapNames[name]
-            self.tables[tableNo]=table
-        return self
 
     # alias name of table
     def alias(self, name, alias):
