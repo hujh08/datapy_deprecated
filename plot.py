@@ -4,6 +4,7 @@
 class to manage plot task
 '''
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 from .plotKit import rectDecomp
@@ -96,6 +97,7 @@ class Plot:
                              ncols=nRowCol[1],
                              sharex=True, sharey=True)
             self.fig.subplots_adjust(hspace=0.001, wspace=0.001)
+            self._axesGeo=self.axes # represent its geometry
             self.axes=self.axes.flatten()
             self._axes=self.axes # real, no replicated axes
         else:
@@ -103,6 +105,8 @@ class Plot:
             ax=self.fig.add_subplot(111)
             self.axes=[ax]*self.ndata
             self._axes=[ax] # real, no replicated axes
+            # represent its geometry
+            self._axesGeo=np.array([[ax]])
 
     # convenient method to access data
     def __getattr__(self, prop):
@@ -181,9 +185,21 @@ class Plot:
             ax.set_ylim(ylim)
         return self
 
+    # set xlabel
+    def set_xlabel(self, label):
+        for ax in self._axesGeo[-1, :]:
+            ax.set_xlabel(label)
+        return self
+
+    # set ylabel
+    def set_ylabel(self, label):
+        for ax in self._axesGeo[:, 0]:
+            ax.set_ylabel(label)
+        return self
+
     # add a baseline
     def addLine(self, *args, **kwargs):
-        for ax in self._axes:
+        for ax in self._axes[0:self.ndata]:
             ax.plot(*args, **kwargs)
         return self
 
