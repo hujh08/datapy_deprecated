@@ -73,11 +73,13 @@ def listBroadCast(lcontainer):
 
     return lcontainer
 
-# escape all characters which are special in regexp
+# convert to regexp used to find specified word(s)
+# mainly escaping all characters which are special in regexp
+#        and appending \b
 #specRe=re.compile(r'(\.)')
-def reEscap(s):
+def toRePattern(s):
     if type(s)==list or type(s)==tuple:
-        return [reEscap(i) for i in s]
+        return [toRePattern(i) for i in s]
 
     #return specRe.sub(r'\\\1', s)
-    return s.replace('.', r'\.')
+    return r'\b%s\b' % s.replace('.', r'\.')

@@ -23,15 +23,28 @@ import math
 from .data import Data
 from .toolKit import keyWrap, \
                      listFlat, listBroadCast, \
-                     reEscap
+                     toRePattern
 from .SQLKit import _markAS, checkName
 from .plot import Plot
 
 class DataBase:
     # supported function used in selection
     SQLFunc={
+        'pi': math.pi,
+        'e': math.e,
         'sqrt': math.sqrt,
-        'hypot': math.hypot,
+        'hypot': math.hypot,  # hypot(a,b)=sqrt(a**2+b**2)
+        'log': math.log,  #log(x[, base])
+        'exp': math.exp,
+        'pow': math.pow,
+        'sin': math.sin,
+        'cos': math.cos,
+        'tan': math.tan,
+        'asin': math.asin,
+        'acos': math.acos,
+        'atan': math.atan,
+        'degrees': math.degrees,
+        'radians': math.radians,
         '_markAS': _markAS,
     }
 
@@ -271,7 +284,7 @@ class DataBase:
     ## what we use is applying function eval
     def SQLparser(self, s):
         tabcols=self.tabColNames()
-        tcStr='|'.join(reEscap(tabcols))
+        tcStr='|'.join(toRePattern(tabcols))
         tcRe=re.compile(r'(%s)' % tcStr)
         cols=tcRe.findall(s)
 
