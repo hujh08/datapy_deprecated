@@ -40,7 +40,8 @@ class DataBase:
                        tables=None,
                        pcols=0,   # primary key like SQL
                        wrap=None,
-                       fwrap=None):
+                       fwrap=None,
+                       types=None):
         '''
         key: convert each name in format
              real name to store tables is format(name)
@@ -49,6 +50,7 @@ class DataBase:
              str: e.g. '%ssuffix'
              funcion: e.g. lambda x: '%ssuffix' % x
         fkey: same as key, but act on fname
+        types: all have similar type
         '''
         # maintain 2 structures
         self.tables=[]   # real space to store data
@@ -62,12 +64,12 @@ class DataBase:
         if fnames!=None:
             self.addFiles(fnames, tables,
                           wrap, fwrap,
-                          pcols)
+                          pcols, types)
 
     # add mulitply files
     def addFiles(self, fnames, tables=None,
                        wrap=None, fwrap=None,
-                       pcols=0):
+                       pcols=0, types=None):
         wrap=keyWrap(wrap)
         fwrap=keyWrap(fwrap)
 
@@ -79,10 +81,10 @@ class DataBase:
 
         for fname, table, p in zip(fnames, tables, pcols):
             self.addFile(wrap(table), fwrap(fname),
-                         p)
+                         p, types)
     # add one file
-    def addFile(self, name, fname, pcol=0):
-        d=Data(fname, name=name, pkey=pcol)
+    def addFile(self, name, fname, pcol=0, types=None):
+        d=Data(fname, name=name, pkey=pcol, types=types)
         return self.addTable(d)
 
     # add table. If existed, overwrite
