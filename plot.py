@@ -175,7 +175,8 @@ class Plot:
             ax.errorbar(xdata, ydata, **otherKW, **kwargs)
         return self
 
-    # set x/ylim
+    # decorate the plot
+    ## set x/ylim
     def set_xlim(self, xlim):
         for ax in self._axes:
             ax.set_xlim(xlim)
@@ -186,7 +187,7 @@ class Plot:
             ax.set_ylim(ylim)
         return self
 
-    # set x/ylabel
+    ## set x/ylabel
     def set_xlabel(self, label):
         for ax in self._axesGeo[-1, :]:
             ax.set_xlabel(label)
@@ -197,7 +198,7 @@ class Plot:
             ax.set_ylabel(label)
         return self
 
-    # add a baseline
+    ## add a baseline
     def addLine(self, *args, **kwargs):
         for ax in self._axes[0:self.ndata]:
             ax.plot(*args, **kwargs)
@@ -222,7 +223,7 @@ class Plot:
         self.addLine([base, base], self.ylim, color=color)
         return self
 
-    # mark panels or draw legend
+    ## mark panels or draw legend
     def mark(self, mark, loc=None, **kwargs):
         if len(self._axes)==1:
             if loc==None:
@@ -250,6 +251,7 @@ class Plot:
             self.fig.show()
         else:
             self.fig.savefig(figname)
+        self.fig.close()
 
     # convenient method to access data
     def __getattr__(self, prop):
