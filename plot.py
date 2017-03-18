@@ -108,11 +108,12 @@ class Plot:
             # represent its geometry
             self._axesGeo=np.array([[ax]])
 
-    # convenient method to access data
-    def __getattr__(self, prop):
-        if prop in ['xlim', 'ylim']:
-            prop='get_%s' % prop
-            return getattr(self._axes[0], prop)()
+    def setFigFrom(self, figax):
+        self.fig=figax.fig
+        self.axes=figax.axes
+        self._axes=figax._axes
+        self._axesGeo=figax._axesGeo
+        return self
 
     # backup data in order for filter
     def backup(self):
@@ -156,22 +157,22 @@ class Plot:
 
     # plot functions
     ## scatter
-    def plotScatter(self, color='blue'):
+    def plotScatter(self, color='blue', **kwargs):
         for i in range(self.ndata):
-            kwargs={'color': color,
-                    'linestyle': 'none',
-                    'marker': 'o'}
+            otherKW={'color': color,
+                     'linestyle': 'none',
+                     'marker': 'o'}
             ax, xdata, ydata, xerr, yerr=\
                 self.axes[i],\
                 self.xdatas[i], self.ydatas[i],\
                 self.xerrs[i],  self.yerrs[i]
 
             if xerr!=None:
-                kwargs['xerr']=xerr
+                otherKW['xerr']=xerr
             if yerr!=None:
-                kwargs['yerr']=yerr
+                otherKW['yerr']=yerr
 
-            ax.errorbar(xdata, ydata, **kwargs)
+            ax.errorbar(xdata, ydata, **otherKW, **kwargs)
         return self
 
     # set x/ylim
@@ -185,13 +186,12 @@ class Plot:
             ax.set_ylim(ylim)
         return self
 
-    # set xlabel
+    # set x/ylabel
     def set_xlabel(self, label):
         for ax in self._axesGeo[-1, :]:
             ax.set_xlabel(label)
         return self
 
-    # set ylabel
     def set_ylabel(self, label):
         for ax in self._axesGeo[:, 0]:
             ax.set_ylabel(label)
@@ -250,3 +250,10 @@ class Plot:
             self.fig.show()
         else:
             self.fig.savefig(figname)
+
+    # convenient method to access data
+    def __getattr__(self, prop):
+        if prop in ['xlim', 'ylim']:
+            prop='get_%s' % prop
+            return getattr(self._axes[0], prop)()
+
