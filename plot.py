@@ -5,9 +5,11 @@ class to manage plot task
 '''
 
 import numpy as np
+from numpy  import histogram
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 
-from .plotKit import rectDecomp
+from .plotKit import rectDecomp, gauss1d
 
 class Plot:
     '''
@@ -155,9 +157,9 @@ class Plot:
             xs, ys, xes, yes
         return self
 
-    # plot functions
+    # visualize data
     ## scatter
-    def plotScatter(self, color='blue', **kwargs):
+    def scatter(self, color='blue', **kwargs):
         for i in range(self.ndata):
             otherKW={'color': color,
                      'linestyle': 'none',
@@ -173,6 +175,74 @@ class Plot:
                 otherKW['yerr']=yerr
 
             ax.errorbar(xdata, ydata, **otherKW, **kwargs)
+        return self
+
+    ## histogram
+    def hist(self, axis='x', bins=50,
+                   hrange=None,    # range of histogram,
+                   normalize=None, # normalize to like 1 if set
+                   fit=None,
+                   fitAnnot=False,
+                   faDict=None, # kwargs for annotation of fit
+                   ):
+        '''
+        faDict: kwargs for annotation of fit
+            default if set None:
+                {xy=(0.60, 0.80),
+                 fontsize=8,
+                 xycoords='axes fraction',
+                 horizontalalignment='left',
+                 verticalalignment='center'}
+        '''
+        if axis=='x':
+            datas=self.xdatas
+        elif axis=='y':
+            datas=self.ydatas
+        else:
+            raise Exception('unkown axis: %s' % axis)
+
+        # some keywords used in histogram
+        hkwargs={}
+        if hrange:
+            hkwargs['range']=hrange
+        for ax, xdata in zip(self.axes, datas):
+            hval, bin_edges=\
+                histogram(xdata, bins=bins, **hkwargs)
+
+            bin_cent=(bin_edges[:-1]+bin_edges[1:])/2
+
+            if normalize:
+                hval=hval/hval.sum(dtype='float64')
+                hval*=normalize
+
+            ax.step(bin_cent, hval, '--')
+
+            if fit=='g': # gaussian fit
+                I0=np.max(hval)
+                mean0=np.mean(xdata)
+                sigma0=np.std(xdata)
+                popt, pcov=\
+                    curve_fit(gauss1d,
+                              bin_cent, hval,
+                              p0=[I0, mean0, sigma0])
+
+                xmax, xmin=bin_edges[-1], bin_edges[0]
+                dx=(xmax-xmin)/10000.
+                xfit=np.arange(xmin, xmax, dx)
+                yfit=gauss1d(xfit, *popt)
+                ax.plot(xfit, yfit)
+                if fitAnnot:
+                    if faDict==None:
+                        faDict={
+                            'xy': (0.60, 0.80),
+                            'fontsize': 8,
+                            'xycoords': 'axes fraction',
+                            'ha': 'left',
+                            'va': 'center',
+                            }
+                    text='center: %.3f\n' % popt[1]
+                    text+=' sigma: %.3f' % popt[2]
+                    ax.annotate(text, **faDict)
         return self
 
     # decorate the plot
@@ -240,8 +310,6 @@ class Plot:
                 ax.annotate(m,
                             xy=loc,
                             xycoords='axes fraction',
-                            #identical to
-                            #xycoords=ax.transAxes,
                             **kwargs)
         return self
 
@@ -251,7 +319,7 @@ class Plot:
             self.fig.show()
         else:
             self.fig.savefig(figname)
-        self.fig.close()
+        plt.close()
 
     # convenient method to access data
     def __getattr__(self, prop):

@@ -4,6 +4,9 @@
 some auxiliary functions/classes
 '''
 
+# identical transform
+idtrans=lambda x: x
+
 #import re
 
 # return function used to wrap an input string
@@ -20,7 +23,7 @@ def keyWrap(key=None, sep=''):
     '''
     if key==None:
         if sep==None:
-            key=lambda x: x
+            key=idtrans
         else:
             key=lambda *x: sep.join(x)
     elif type(key)==str:
@@ -83,3 +86,61 @@ def toRePattern(s):
 
     #return specRe.sub(r'\\\1', s)
     return r'\b%s\b' % s.replace('.', r'\.')
+
+# infinite iterator
+class infIter:
+    '''
+    implement infinite iterator
+    for example:
+        simple:
+            infinite None sequence:
+                infIter()
+            arithmetic sequence:
+                infIter(0, lambda x: x+1)
+        more complicated
+            fibonacci sequence:
+                infIter([1, 1],
+                        lambda x: [x[1], x[0]+x[1]],
+                        lambda x: x[0])
+    in order to stop:
+        use break or
+        used in zip with a finite iterator
+    '''
+    def __init__(self, state=None,
+                 iter=None, key=None):
+        self.state=state
+        self.state0=self.state  # initial state
+
+        # iteration function
+        if iter==None:
+            iter=idtrans
+        self.ifunc=iter
+
+        # wrapper of returning val
+        if key==None:
+            key=idtrans
+        self.kfunc=key
+
+    def reset(self):
+        '''
+        reset state of iterator
+        '''
+        self.state=self.state0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        state=self.state
+        self.state=self.ifunc(state)
+        return self.kfunc(state)
+
+## some special infinite iterators
+### infinite None
+infNone=infIter()
+### arithmetic sequence
+def ariSeq(a=0, d=1):
+    return infIter(a, lambda x: x+d)
+### geometric sequence
+def geoSeq(a=1, t=2):
+    return infIter(a, lambda x: x*t)
