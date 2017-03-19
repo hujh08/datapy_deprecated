@@ -74,19 +74,6 @@ class Data:
         if types!=None:
             self.asTypes(types)
 
-    # convenient method to access data
-    def __getattr__(self, prop):
-        if prop=='len':
-            return len(self.body)
-        elif prop=='width':
-            return len(self.head)
-
-    def __len__(self):
-        return self.len
-
-    def __contains__(self, col):
-        return col in self.head
-
     # get number of column giving number/string/None
     def getColInd(self, col=None):
         if col==None:
@@ -612,3 +599,19 @@ class Data:
 
         if filename!=None:
             f.close()
+
+    # convenient method to access data
+    def __getattr__(self, prop):
+        if prop=='len':
+            return len(self.body)
+        elif prop=='width':
+            return len(self.head)
+
+    def __len__(self):
+        return self.len
+
+    def __contains__(self, col):
+        return col in self.head
+
+    def __iter__(self):
+        return iter(self.body)
