@@ -161,8 +161,11 @@ class Data:
             return 'f'
         elif type(d)==str:
             return 's'
+        elif type(d)==list:
+            return 'l'
         else:
-            raise Exception('unsupported type for data')
+            raise Exception('unsupported type for data: %s'
+                                % type(d))
 
     # copy
     def copy(self, name=''):
@@ -290,11 +293,15 @@ class Data:
             return int
         elif dtype=='f':
             return float
+        elif dtype=='l':
+            return list
         else:
             raise Exception('unsupported data type')
 
     # get types of body
     def getBodyTypes(self):
+        if not self.body:
+            raise Exception('empty Data, no types')
         types=[]
         for c in self.body[0]:
             types.append(self.getTypeName(c))
@@ -496,7 +503,7 @@ class Data:
 
         for line in self.body:
             if func(line[cols]):
-                self.body.append(line)
+                result.body.append(line)
 
         return result
 
@@ -580,6 +587,8 @@ class Data:
         for f in self.types:
             if f=='f':
                 formats.append('%%.%if' % precise)
+            elif f=='l':
+                formats.append('%s')
             else:
                 formats.append('%%%s' % f)
         formats=' '.join(formats)

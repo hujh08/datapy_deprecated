@@ -144,3 +144,65 @@ def ariSeq(a=0, d=1):
 ### geometric sequence
 def geoSeq(a=1, t=2):
     return infIter(a, lambda x: x*t)
+
+# n-dimension list
+class ndList:
+    '''
+    n-dimension list
+    simpe wrapper of list,
+    and has tuple index
+    '''
+    def __init__(self, *shape):
+        # shape is tuple
+        self.layout(*shape)
+    
+    # lay out sublist
+    def _layout(self, shape):
+        '''
+        layout sublist
+        '''
+        if len(shape)==1:
+            return [[] for i in range(*shape)]
+        return [self._layout(shape[1:])
+                    for i in range(shape[0])]
+
+    def layout(self, *shape):
+        self.shape=shape
+        self.container=self._layout(shape)
+
+    # fill data
+    def fill(self, index, d):
+        if type(index)==int:
+            index=(index,)
+        if len(index)!=len(self.shape):
+            raise Exception('mismatch dimension '+
+                            'of index with shape')
+
+        self[index].append(d)
+        return self
+
+    # clear data in sublist
+    def clear(self, index=None):
+        if index==None:
+            self.container.clear()
+            return self
+
+        self[index].clear()
+        return self
+
+    def __getitem__(self, index):
+        if type(index)==int:
+            return self.container[index]
+        elif type(index)==tuple:
+            result=self.container
+            for i in index:
+                result=result[i]
+            return result
+        else:
+            raise TypeError('ndList indices must be '+
+                            'integers or tuple')
+
+    def __str__(self):
+        return self.container.__str__()
+    def __repr__(self):
+        return self.container.__repr__()

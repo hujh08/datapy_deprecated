@@ -181,6 +181,7 @@ class Plot:
     def hist(self, axis='x', bins=50,
                    hrange=None,    # range of histogram,
                    normalize=None, # normalize to like 1 if set
+                   onlyfit=False,  # only plot fitted line
                    fit=None,
                    fitAnnot=False,
                    faDict=None, # kwargs for annotation of fit
@@ -215,7 +216,8 @@ class Plot:
                 hval=hval/hval.sum(dtype='float64')
                 hval*=normalize
 
-            ax.step(bin_cent, hval, '--')
+            if not onlyfit:
+                ax.step(bin_cent, hval, '--')
 
             if fit=='g': # gaussian fit
                 I0=np.max(hval)
@@ -245,6 +247,40 @@ class Plot:
                     ax.annotate(text, **faDict)
         return self
 
+
+    ## cumulative fraction
+    def cumul(self, axis='x', bins=200,
+                    hrange=None,    # range of histogram,
+                    normalize=None, # normalize to like 1 if set
+                    ):
+        '''
+        cumulative fraction
+        '''
+        if axis=='x':
+            datas=self.xdatas
+        elif axis=='y':
+            datas=self.ydatas
+        else:
+            raise Exception('unkown axis: %s' % axis)
+
+        # some keywords used in histogram
+        hkwargs={}
+        if hrange:
+            hkwargs['range']=hrange
+        for ax, xdata in zip(self.axes, datas):
+            hval, bin_edges=\
+                histogram(xdata, bins=bins, **hkwargs)
+
+            bin_cent=(bin_edges[:-1]+bin_edges[1:])/2
+
+            hcum=hval.cumsum()
+            if normalize:
+                hcum=hcum/hcum[-1]
+                hcum*=normalize
+
+            ax.plot(bin_cent, hcum)
+        return self
+
     # decorate the plot
     ## set x/ylim
     def set_xlim(self, xlim):
@@ -255,6 +291,17 @@ class Plot:
     def set_ylim(self, ylim):
         for ax in self._axes:
             ax.set_ylim(ylim)
+        return self
+
+    ## set x/yticks
+    def set_xticks(self, ticks):
+        for ax in self._axes:
+            ax.set_xticks(ticks)
+        return self
+
+    def set_ytics(self, ticks):
+        for ax in self._axes:
+            ax.set_yticks(ticks)
         return self
 
     ## set x/ylabel
