@@ -145,14 +145,15 @@ class astroData:
 
     # given Data type, extract information
     def dataQuery(self, rdData, query,
-                        radius=5, rdInd=['ra', 'dec']):
+                        radius=5, rdInd=['ra', 'dec'],
+                        asName=''):
         '''
         rdInd: indices for ra,dec in rdData
         '''
         # convert to integer indices
         rdInd=[rdData.getColInd(i) for i in rdInd]
 
-        result=Data()
+        result=Data(name=asName)
         # handle head
         pkey=rdData.pkey
         head=[rdData.head[pkey]]

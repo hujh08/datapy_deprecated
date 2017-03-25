@@ -50,16 +50,28 @@ class Data:
 
         with open(filename) as f:
             # name of columns
-            self.head=checkName(f.readline()[1:].split())
-            # skip other comment line
-            for line in f:
-                if line[0]!='#':
-                    break
+            line=f.readline()
+            if line[0]=='#':
+                self.head=checkName(line[1:].split())
+                # skip other comment line
+                for line in f:
+                    if line[0]!='#':
+                        break
 
             # fill body
             self.body=[line.split()]
             for line in f:
                 self.body.append(line.split())
+
+            # empty body
+            if not self.body:
+                raise Warning('empty body in Data')
+
+            # no head line
+            if not self.head:
+                w=len(self.body[0])
+                self.head=['col%i' % i
+                                for i in range(w)]
 
             # check width of data
             for i, line in enumerate(self.body):
