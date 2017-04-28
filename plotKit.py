@@ -5,7 +5,10 @@ auxiliary functions used module plot
 '''
 
 import numpy as np
+from numpy  import histogram
 from scipy.optimize import curve_fit
+
+from functools import reduce
 
 # when plot in multi-panel, determine nrow/ncol
 def rectDecomp(num, maxr=2):
@@ -68,3 +71,41 @@ def buildTicks(xmin, xmax,
 # 1d gaussian function
 def gauss1d(x, I, x0, sigma):
     return I*np.exp(-(x-x0)**2/(2*sigma**2))
+
+# function used in statistic
+## hist of one of x, y, xe, ye
+def histStat(x, y, xe, ye, key='x', normalize=None, **kwargs):
+    data=locals()[key]
+    hval, bin_edges=histogram(data, **kwargs)
+    bin_cent=(bin_edges[:-1]+bin_edges[1:])/2
+    bin_gap=bin_cent[1]-bin_cent[0]
+    if normalize!=None:
+        hval=hval/hval.sum(dtype='float64')
+        hval*=normalize/bin_gap
+    l=len(hval)
+    return bin_cent, hval, [None]*l, [None]*l
+
+def cumulStat(x, y, xe, ye, key='x', normalize=None, **kwargs):
+    data=locals()[key]
+    hval, bin_edges=histogram(data, **kwargs)
+    bin_cent=(bin_edges[:-1]+bin_edges[1:])/2
+    hcum=hval.cumsum()
+    if normalize!=None:
+        hcum=hcum/hcum[-1]
+        hcum*=normalize
+    l=len(hcum)
+    return bin_cent, hcum, [None]*l, [None]*l
+
+def gaussStat(x, y, xe, ye, init=None, **kwargs):
+    if init==None:
+        I0=np.max(y)
+        mean0=np.average(x, weights=y)
+        sigma0=reduce(lambda s, i, m=mean0: s+i[1]*(i[0]-m)**2,
+                      zip(x, y), 0)
+        sigma0=np.sqrt(sigma0/np.sum(y))
+    else:
+        I0, mean0, sigma0=init
+    popt, pcov=\
+        curve_fit(gauss1d, x, y, p0=[I0, mean0, sigma0])
+
+    return popt, [None]*3, [None]*3, [None]*3

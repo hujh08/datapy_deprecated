@@ -1,4 +1,7 @@
 
 __pycache__/*
+test/*
+_backup/*
 
 *.pyc
+getData.py

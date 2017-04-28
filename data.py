@@ -40,8 +40,8 @@ class Data:
         all data is read in as string by default
         pkey: primary key, same role as in database
         '''
-        self.pkey=pkey
         self.name=name
+        self.pkey=0
 
         if filename==None:
             self.head=[]
@@ -63,26 +63,34 @@ class Data:
             for line in f:
                 self.body.append(line.split())
 
-            # empty body
-            if not self.body:
-                raise Warning('empty body in Data')
+        # empty body
+        if not self.body:
+            raise Warning('empty body in Data')
 
-            # no head line
-            if not self.head:
-                w=len(self.body[0])
-                self.head=['col%i' % i
-                                for i in range(w)]
+        # no head line
+        if not self.head:
+            w=len(self.body[0])
+            self.head=['col%i' % i
+                            for i in range(w)]
 
-            # check width of data
-            for i, line in enumerate(self.body):
-                if len(line)!=len(self.head):
-                    raise Exception('File "%s", ' % filename +
-                                    'in line %i:\n' % i +
-                                    '  mismatch between '+
-                                    'head and body')
+        # check width of data
+        for i, line in enumerate(self.body):
+            if len(line)!=len(self.head):
+                raise Exception('File "%s", ' % filename +
+                                'in line %i:\n' % i +
+                                '  mismatch between '+
+                                'head and body')
 
-            self.types='s'*len(self.head)
+        # pkey
+        if type(pkey)==str:
+            pkey=self.getColInd(pkey)
+        elif type(pkey)!=int:
+            raise TypeError('pkey must be str or integer, '
+                            +'not %s' % type(pkey))
+        self.pkey=pkey
 
+        # types
+        self.types='s'*len(self.head)
         if types!=None:
             self.asTypes(types)
 
@@ -91,8 +99,14 @@ class Data:
         if col==None:
             return self.pkey
         elif type(col)==str:
+            if col not in self.head:
+                raise Exception('%s not in head' % col)
             return self.head.index(col)
         return col
+
+    # get column
+    def getCol(self, col):
+        return self.simpleSelect(col)
 
     # del column
     def delCol(self, col):
@@ -321,7 +335,7 @@ class Data:
         return ''.join(types)
 
     # set name of data
-    def setName(self, name):
+    def asName(self, name):
         checkName(name)
         self.name=name
         return self

@@ -93,10 +93,10 @@ class DataBase:
             pcols=[pcols]*len(fnames)
 
         for fname, table, p in zip(fnames, tables, pcols):
-            self.addFile(wrap(table), fwrap(fname),
-                         p, types)
+            self.addFile(fwrap(fname), wrap(table),
+                         types, p)
     # add one file
-    def addFile(self, name, fname, pcol=0, types=None):
+    def addFile(self, fname, name, types=None,  pcol=0):
         d=Data(fname, name=name, pkey=pcol, types=types)
         return self.addTable(d)
 
@@ -337,7 +337,7 @@ class DataBase:
                 else:
                     fields.append(q)
         hds=', '.join(fields)
-
+        
         # eval to get function
         lineFunc=self._eval(s, len(cols))
         HeadFunc=self._eval(hds, len(cols))
@@ -413,6 +413,11 @@ class DataBase:
                    sameSample=False,
                    **kwargs):
         '''
+        x/y/xe/yecols:
+            must be iterable
+            attention if given string
+                string will be regarded as iterable
+                so if given long name, list needed here
         wrap: default wrap if x/y/xe/yewrap is None
         ewrap: default wrap for xe/yewrap
         xe/yecols: bool/iterable
@@ -504,6 +509,7 @@ class DataBase:
 
         # match data from database using pkey
         dbcols=[datas[i] for i in useDB]
+
         if sameSample:
             dbcols=[[i] for i in listFlat(dbcols)]
         else:
@@ -512,7 +518,7 @@ class DataBase:
         DBdatas=[]
         for cols in zip(*dbcols):
             l=len(cols)
-            strcols=', '.join(cols)
+            strcols=', '.join(cols)+','
             datacol=self.select(strcols).toColList()
             DBdatas.append(datacol[-l:])
 
