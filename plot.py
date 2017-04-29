@@ -5,6 +5,7 @@ devise a class to manage plot task
 '''
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from matplotlib.font_manager import FontProperties
 
 from scipy.optimize import curve_fit
@@ -17,7 +18,7 @@ from functools import partial
 
 from .plotKit import rectDecomp, gauss1d,\
                      histStat, cumulStat, gaussStat
-from .toolKit import keyWrap, tabStr
+from .toolKit import keyWrap, tabStr, partIter, infIter
 
 class Plot:
     '''
@@ -267,6 +268,8 @@ class Plot:
         self.ydatas=self._splitDatas(self.ydatas_base, ndpa)
         self.xerrs=self._splitDatas(self.xerrs_base, ndpa)
         self.yerrs=self._splitDatas(self.yerrs_base, ndpa)
+
+        self.naxes=len(self.xdatas)
 
     def _splitDatas(self, datas, ndpa):
         '''
@@ -734,7 +737,7 @@ class Plot:
                         _faDict[i]=faDict[i]
                 self.printData(['center', 'sigma'],
                                field=[1, 2], bstr='%.3f',
-                               **faDict)
+                               **_faDict)
 
         return self
 
@@ -785,39 +788,17 @@ class Plot:
 
         return self
 
-
     # decoration of the figure
-    ## set x/ylim
-    def set_xlim(self, xlim):
+    ## proxy for same setup of axes
+    def proxy_ax_func(self, _axprop, *args, **kwargs):
         for ax in self.axes:
-            ax.set_xlim(xlim)
+            ax.__getattribute__(_axprop)(*args, **kwargs)
         return self
 
-    def set_ylim(self, ylim):
-        for ax in self.axes:
-            ax.set_ylim(ylim)
-        return self
-
-    ## set x/yscale
-    def set_xscale(self, scale):
-        for ax in self.axes:
-            ax.set_xscale(scale)
-        return self
-
-    def set_yscale(self, scale):
-        for ax in self.axes:
-            ax.set_yscale(scale)
-        return self
-
-    ## set x/yticks
-    def set_xticks(self, ticks):
-        for ax in self.axes:
-            ax.set_xticks(ticks)
-        return self
-
-    def set_ytics(self, ticks):
-        for ax in self.axes:
-            ax.set_yticks(ticks)
+    ## set x,y ticks at same time with same behavior
+    def set_xyticks(self, ticks, *args, **kwargs):
+        self.set_xticks(ticks, *args, **kwargs)
+        self.set_yticks(ticks, *args, **kwargs)
         return self
 
     ## set x/ylabel
@@ -834,33 +815,124 @@ class Plot:
         return self
 
     ## add a baseline
-    def addLine(self, *args, **kwargs):
-        for ax in self.axes[0:self.ndata]:
-            ax.plot(*args, **kwargs)
+    def add_line(self, transFunc, *args, **kwargs):
+        '''
+        transFunc: callable
+            accept axis, and return transform instance
+        '''
+        for ax in self.axes[0:self.naxes]:
+            ax.plot(*args, **kwargs, transform=transFunc(ax))
         return self
 
-    def addEqline(self, scope=None, color='black'):
+    def add_dline(self, scope=(0, 1), transFunc=None, 
+                         color='black', **kwargs):
+        # add diagonal line
         if scope==None:
-            xlim=self.xlim
-            ylim=self.ylim
-            scope=[min(xlim[0], ylim[0]), 
-                   max(xlim[1], ylim[1])]
-        self.addLine(scope, scope,
-                     color=color)
+            scope=[0, 1]
+        if transFunc==None:
+            transFunc=lambda ax: ax.transAxes
+        self.add_line(transFunc, scope, scope, 
+                      color=color, **kwargs)
         return self
 
-    def addHline(self, base=0, scope=None, color='black'):
+    def add_hline(self, base=0, scope=(0, 1), transFunc=None,
+                       color='black', **kwargs):
         # add horizental line
-        if scope==None:
-            scope=self.xlim
-        self.addLine(scope, [base, base], color=color)
+        if transFunc==None:
+            transFunc=lambda ax: ax.get_yaxis_transform()
+        self.add_line(transFunc, scope, [base, base],
+                      color=color, **kwargs)
         return self
 
-    def addVline(self, base=0, scope=None, color='black'):
+    def add_vline(self, base=0, scope=(0, 1), transFunc=None,
+                       color='black', **kwargs):
         # add vertical line
-        if scope==None:
-            scope=self.ylim
-        self.addLine([base, base], scope, color=color)
+        if transFunc==None:
+            transFunc=lambda ax: ax.get_xaxis_transform()
+        self.add_line(transFunc, [base, base], scope,
+                      color=color, **kwargs)
+        return self
+
+    # add span
+    def add_span(self, transFunc, xy, shape, angle,
+                       alpha, **kwargs):
+        for ax in self.axes[0:self.naxes]:
+            rect=patches.Rectangle(xy, width=shape[0],
+                    height=shape[1], transform=transFunc(ax),
+                    angle=angle, alpha=alpha, **kwargs)
+            ax.add_patch(rect)
+        return self
+
+    def add_hspan(self, scope, hscope=(0, 1), transFunc=None,
+                        alpha=0.5, angle=0.0, **kwargs):
+        # add horizontal span
+        if transFunc==None:
+            transFunc=lambda ax: ax.get_yaxis_transform()
+        xy=(hscope[0], scope[0])
+        shape=(hscope[1]-hscope[0], scope[1]-scope[0])
+        self.add_span(transFunc, xy, shape, angle,
+                                 alpha, **kwargs)
+        return self
+
+    def add_vspan(self, scope, vscope=(0, 1), transFunc=None,
+                        alpha=0.5, angle=0.0, **kwargs):
+        # add vertical span
+        if transFunc==None:
+            transFunc=lambda ax: ax.get_xaxis_transform()
+        xy=(scope[0], vscope[0])
+        shape=(scope[1]-scope[0], vscope[1]-vscope[0])
+        self.add_span(transFunc, xy, shape, angle,
+                                 alpha, **kwargs)
+        return self
+
+    def fill_between(self, transFunc, x, upper, lower,
+                           alpha, **kwargs):
+        for ax in self.axes[0:self.naxes]:
+            ax.fill_between(x, upper, lower,
+                            alpha=alpha,
+                            transform=transFunc(ax),
+                            **kwargs)
+        return self
+
+    def add_vrange(self, x, y, yerr, transFunc=None,
+                         alpha=0.5, **kwargs):
+        # add vertical range around a line (x, y)
+        if transFunc==None:
+            transFunc=lambda ax: ax.get_yaxis_transform()
+        elif transFunc=='data':
+            transFunc=lambda ax: ax.transData
+        elif transFunc=='axes':
+            transFunc=lambda ax: ax.transAxes
+        elif not callable(transFunc):
+            raise Exception('unknown type for transFunc')
+
+        upper=[i+yerr for i in y]
+        lower=[i-yerr for i in y]
+        self.fill_between(transFunc, x, upper, lower,
+                                alpha=alpha, **kwargs)
+        return self
+
+    def add_around(self, lineNo, yerrs, alpha=0.5, **kwargs):
+        '''
+        add vertical range around line:
+            self.pltObjs[:][lineNo]
+
+        lineNo: integer, slice or iterable
+
+        yerrs: number or iterable
+        '''
+        if type(yerrs)==int or type(yerrs)==float:
+            yerrs=infIter(yerrs)
+
+        for ax, objs in zip(self.axes, self.pltObjs):
+            for line, yerr in zip(partIter(objs, lineNo), yerrs):
+                x, y=line.get_data()
+                upper=[i+yerr for i in y]
+                lower=[i-yerr for i in y]
+                ax.fill_between(x, upper, lower,
+                                alpha=alpha,
+                                transform=line.get_transform(),
+                                **kwargs)
         return self
 
     ## mark axes
@@ -905,3 +977,7 @@ class Plot:
         if prop in ['xlim', 'ylim']:
             prop='get_%s' % prop
             return getattr(self.axes[0], prop)()
+        elif prop in set(['set_xlim', 'set_ylim',
+                          'set_xscale', 'set_yscale',
+                          'set_xticks', 'set_yticks']):
+            return partial(self.proxy_ax_func, prop)

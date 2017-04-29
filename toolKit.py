@@ -76,6 +76,37 @@ def listBroadCast(lcontainer):
 
     return lcontainer
 
+# accept integer, slice and list as indices,
+#   work as using slice
+class partIter:
+    def __init__(self, array, indices):
+        if type(indices)==int:
+            indices=[indices]
+        elif type(indices)==slice:
+            array=array[indices]
+            indices=list(range(len(array)))
+
+        self.array=array
+        self.indices=indices
+
+        self.lenArr=len(self.array)
+        self.lenInd=len(self.indices)
+
+    def __iter__(self):
+        self.ind=0
+        return self
+
+    def __next__(self):
+        if self.ind>=self.lenInd:
+            raise StopIteration('partIter stop')
+        ind=self.indices[self.ind]
+        if ind>=self.lenArr:
+            raise StopIteration('partIter stop')
+        self.ind+=1
+        return self.array[ind]
+
+
+
 # if None, return default. Otherwise, return itself
 def ifnone(a, default):
     if a==None:
