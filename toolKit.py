@@ -232,6 +232,12 @@ def toRePattern(s):
     #return specRe.sub(r'\\\1', s)
     return r'\b%s\b' % s.replace('.', r'\.')
 
+# determine whether a var is a number, like int, float
+def isnumber(a):
+    if type(a)==int or type(a)==float:
+        return True
+    return False
+
 # infinite iterator
 class infIter:
     '''

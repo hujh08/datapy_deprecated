@@ -16,9 +16,12 @@ from numpy  import histogram
 from math import ceil
 from functools import partial
 
+from .figure import Figure
 from .plotKit import rectDecomp, gauss1d,\
                      histStat, cumulStat, gaussStat
-from .toolKit import keyWrap, tabStr, partIter, infIter
+from .toolKit import keyWrap, tabStr,\
+                     infIter, infNone,\
+                     isnumber
 
 class Plot:
     '''
@@ -124,7 +127,7 @@ class Plot:
         if type(nRowCol)==Plot:
             self.copy_figax(nRowCol)
         else:
-            self.set_figax(nRowCol=nRowCol)
+            self.set_figax(nRowCol, self.naxes)
 
         # not backup in init
         self.backuped=False
@@ -291,38 +294,11 @@ class Plot:
         self.splitDatas(*args, **kwargs)
 
     # lay out the axes
-    def set_figax(self, naxes=None, nRowCol=None):
-        if nRowCol==None:
-            if naxes==None:
-                naxes=len(self.xdatas)
-            nRowCol=rectDecomp(naxes)
-
-        naxes=nRowCol[0]*nRowCol[1]
-        if naxes==1:
-            self.fig=plt.gcf()
-            self.axes=[self.fig.gca()]
-        else:
-            fig, axes = \
-                plt.subplots(nrows=nRowCol[0],
-                             ncols=nRowCol[1],
-                             sharex=True, sharey=True)
-            fig.subplots_adjust(hspace=0.001, wspace=0.001)
-            self.fig=fig
-            self.axes=axes.flatten()
-
-        # collect objects added to the figure
-        #       which can be used for legend
-        self.pltObjs=[[] for i in self.axes]
+    def set_figax(self, nRowCol=None, naxes=None):
+        self.fig=Figure(nRowCol, naxes)
 
     def copy_figax(self, srcFig):
-        if type(srcFig)!=Plot:
-            raise Exception('cannot copy figax from %s'
-                                % type(srcFig))
-
         self.fig=srcFig.fig
-        self.axes=srcFig.axes
-        self.pltObjs=srcFig.pltObjs
-
 
     # backup data in order for filter, data transform
     def backup(self):
@@ -489,12 +465,10 @@ class Plot:
             accept ax and datas, do the plot work
                 return collection of objects needed for legend
         '''
-        for ax, objs, *ads in zip(self.axes, self.pltObjs, *datas):
+        for ax, *ads in zip(self.fig, *datas):
             #if 'collection' in pltFunc.__code__.co_varnames:
             #    kwargs['collection']=objs
-            objcol=pltFunc(ax, *ads, *args, **kwargs)
-            if objcol!=None and objcol:
-                objs.extend(objcol)
+            pltFunc(ax, *ads, *args, **kwargs)
 
     ## generic plot method. independent between sets of data
     def gen_plot(self, datas, pltFunc, *args, **kwargs):
@@ -508,14 +482,10 @@ class Plot:
         pltFunc: factory function
             accept ax, and return function to plot
         '''
-        for ax, objs, *ads in zip(self.axes, self.pltObjs, *datas):
+        for ax, *ads in zip(self.fig, *datas):
             pltFuncAx=pltFunc(ax)
             for d in zip(*ads):
-                obj=pltFuncAx(*d, *args, **kwargs)
-                if type(obj)==list:
-                    objs.extend(obj)
-                elif obj!=None:
-                    objs.append(obj)
+                pltFuncAx(*d, *args, **kwargs)
 
     ## simple plot. just show raw data
     def plot(self, *args, **kwargs):
@@ -654,8 +624,6 @@ class Plot:
         if len(datas)==0:
             return
 
-        collection=[]
-
         numbar=len(datas[0])
         xintTicks=np.array(range(numbar))
 
@@ -663,15 +631,12 @@ class Plot:
         width=width/ndata
         shift=-width*(ndata-1)/2.
         for i, data in enumerate(datas):
-            obj=ax.bar(xintTicks+shift, data, width, **kwargs)
+            ax.bar(xintTicks+shift, data, width, **kwargs)
             shift+=width
-            collection.append(obj)
 
         if xticks!=None:
             ax.set_xticks(xintTicks)
             ax.set_xticklabels(xticks)
-
-        return collection
 
     def bar(self, key='x',
                   xticks=None,
@@ -790,9 +755,9 @@ class Plot:
 
     # decoration of the figure
     ## proxy for same setup of axes
-    def proxy_ax_func(self, _axprop, *args, **kwargs):
-        for ax in self.axes:
-            ax.__getattribute__(_axprop)(*args, **kwargs)
+    def proxy_ax_func(self, task, *args, **kwargs):
+        for ax in self.fig:
+            getattr(ax, task)(*args, **kwargs)
         return self
 
     ## set x,y ticks at same time with same behavior
@@ -803,25 +768,27 @@ class Plot:
 
     ## set x/ylabel
     def set_xlabel(self, label):
-        for ax in self.axes:
+        for ax in self.fig:
             if ax.is_last_row():
                 ax.set_xlabel(label)
         return self
 
     def set_ylabel(self, label):
-        for ax in self.axes:
+        for ax in self.fig:
             if ax.is_first_col():
                 ax.set_ylabel(label)
         return self
 
     ## add a baseline
-    def add_line(self, transFunc, *args, **kwargs):
+    def add_line(self, transFunc, *args,
+                       store=False, **kwargs):
         '''
         transFunc: callable
             accept axis, and return transform instance
         '''
-        for ax in self.axes[0:self.naxes]:
-            ax.plot(*args, **kwargs, transform=transFunc(ax))
+        for ax in self.fig[0:self.naxes]:
+            ax.plot(*args, **kwargs, transform=transFunc(ax),
+                    store=store)
         return self
 
     def add_dline(self, scope=(0, 1), transFunc=None, 
@@ -856,7 +823,7 @@ class Plot:
     # add span
     def add_span(self, transFunc, xy, shape, angle,
                        alpha, **kwargs):
-        for ax in self.axes[0:self.naxes]:
+        for ax in self.fig[0:self.naxes]:
             rect=patches.Rectangle(xy, width=shape[0],
                     height=shape[1], transform=transFunc(ax),
                     angle=angle, alpha=alpha, **kwargs)
@@ -887,7 +854,7 @@ class Plot:
 
     def fill_between(self, transFunc, x, upper, lower,
                            alpha, **kwargs):
-        for ax in self.axes[0:self.naxes]:
+        for ax in self.fig[0:self.naxes]:
             ax.fill_between(x, upper, lower,
                             alpha=alpha,
                             transform=transFunc(ax),
@@ -912,7 +879,8 @@ class Plot:
                                 alpha=alpha, **kwargs)
         return self
 
-    def add_around(self, lineNo, yerrs, alpha=0.5, **kwargs):
+    def add_span_around(self, yerrs, lineNo=None,
+                              alpha=0.5, **kwargs):
         '''
         add vertical range around line:
             self.pltObjs[:][lineNo]
@@ -921,11 +889,13 @@ class Plot:
 
         yerrs: number or iterable
         '''
-        if type(yerrs)==int or type(yerrs)==float:
+        if isnumber(yerrs):
             yerrs=infIter(yerrs)
+        if type(lineNo)==int:
+            lineNo=[lineNo]
 
-        for ax, objs in zip(self.axes, self.pltObjs):
-            for line, yerr in zip(partIter(objs, lineNo), yerrs):
+        for ax in self.fig:
+            for line, yerr in zip(ax[lineNo], yerrs):
                 x, y=line.get_data()
                 upper=[i+yerr for i in y]
                 lower=[i-yerr for i in y]
@@ -940,12 +910,12 @@ class Plot:
                    loc=(0.1, 0.8),
                    coords='axes fraction',
                    **kwargs):
-        for ax, m in zip(self.axes, mark):
+        for ax, m in zip(self.fig, mark):
             ax.annotate(m, xy=loc, xycoords=coords, **kwargs)
         return self
 
     ## legend
-    def legend(self, labels, objs=None,
+    def legend(self, labels, objs=infNone,
                      loc='upper right',
                      **kwargs):
         '''
@@ -954,13 +924,7 @@ class Plot:
                 representing which objects in each axes
             None: all objects
         '''
-        handlabs=[labels]
-        if objs!=None:
-            handlabs.insert(0, [
-                [psAx[i] for i in iAx]
-                    for iAx, psAx in zip(objs, self.pltObjs)
-            ])
-        for ax, *labs in zip(self.axes, *handlabs):
+        for ax, *labs in zip(self.fig, labels, objs):
             ax.legend(*labs, loc=loc, **kwargs)
         return self
 
@@ -976,7 +940,7 @@ class Plot:
     def __getattr__(self, prop):
         if prop in ['xlim', 'ylim']:
             prop='get_%s' % prop
-            return getattr(self.axes[0], prop)()
+            return getattr(self.fig[0], prop)()
         elif prop in set(['set_xlim', 'set_ylim',
                           'set_xscale', 'set_yscale',
                           'set_xticks', 'set_yticks']):
