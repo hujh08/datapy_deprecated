@@ -112,7 +112,6 @@ def gaussStat(x, y, xe, ye, init=None, **kwargs):
 
     return popt, [None]*3, [None]*3, [None]*3
 
-
 # factory of transform instance through a funciton
 class TransformFactory(Transform):
     def __init__(self, func, indims, outdims=None,
@@ -185,9 +184,16 @@ class Transform2DSwap(Transform):
     '''
     def __init__(self, trans):
         Transform.__init__(self)
+
         self.trans=trans
+        self.set_children(trans)
+
         self.input_dims=trans.input_dims
         self.output_dims=trans.output_dims
+
+        self.is_affine=trans.is_affine
+        self.has_inverse=trans.has_inverse
+        self.is_separable=trans.is_separable
 
     def transform_non_affine(self, values):
         values=np.c_[values[:, 1], values[:, 0]]

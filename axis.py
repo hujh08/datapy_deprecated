@@ -113,7 +113,7 @@ class Axis:
 
         return self.plot(xd, xd, transform=transform, **kwargs)
 
-    # print datas in axis
+    # embody datas in axis
     def dtext(self, datas, func=str, loc=(0.8, 0.8),
                     coords='axes fraction',
                     fontfamily=None, **kwargs):
@@ -129,12 +129,12 @@ class Axis:
                     dname=None, dfield=None, bstr=str,
                     pd=None, fv=None, hsep=None, **kwargs):
         '''
-        print data with given head
+        embody data as table with given head
 
         head: iterable
 
         field: iterable or None
-            show the scope of data to print
+            show the scope of data to handle
 
         datasName: iterable
             description of each set of data
@@ -145,10 +145,10 @@ class Axis:
             convert each data--number or string to string
 
         pd: bool or None
-            whether to print dname
+            whether to embody dname
 
         fv: bool or None
-            whether to print fname one by one vertically
+            whether to embody fname one by one vertically
 
         hsep: string or None
             seperator in horizontal row

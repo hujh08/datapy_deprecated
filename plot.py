@@ -496,7 +496,7 @@ class Plot:
     ## simple plot. just show raw data
     ### implemented in __getattr__
 
-    ## other understanding of data
+    ## other views of data
     ### as arguments of function
     def fcurve(self, func, key='x', scope=(0, 1),
                      npoint=100, **kwargs):
@@ -514,18 +514,17 @@ class Plot:
                       lambda ax: ax.fcurve,
                       func, scope, npoint, **kwargs)
 
-    ### as information to print
-    #### generic method to print data in figure
+    ### generic method to embody data in figure
     def dtext(self, func, key='x', **kwargs):
         '''
         datas in store are converted to string through func
-        and be printed in  the figure
+        and be embodyed in the figure
         '''
         self.gen_plot_ax([self.plotd_dict[key]],
                          lambda ax: ax.dtext,
                          func, **kwargs)
 
-    ##### more frequently used method
+    ### more frequently used method to embody data
     def ttext(self, head, *args, key='x', **kwargs):
         self.gen_plot_ax([self.plotd_dict[key]],
                          lambda ax: ax.ttext,
@@ -549,8 +548,7 @@ class Plot:
                    flDict={}, # kwargs for fit line
                    fitAnnot=False,
                    faDict=None, # kwargs for annotation of fit
-                   **kwargs
-                   ):
+                   **kwargs):
         '''
         faDict: kwargs for annotation of fit
             default if set None:
