@@ -151,25 +151,29 @@ class TransformFactory(Transform):
         #   values would be converted 2d array
         return np.apply_along_axis(self.func, 1, values)
 
-def iterFunc(func):
-    return lambda args: [func(i) for i in args]
-
 class FuncTransform(TransformFactory):
     '''
     func handles elements of values independently
     '''
+    is_separable=True
+
     def __init__(self, func, indims, outdims=None,
                        inv_func=None):
         '''
         func, inv_func: callable
         works on scalar
         '''
-        func=iterFunc(func)
+        func=np.frompyfunc(func, 1, 1)
         if inv_func!=None:
-            inv_func=iterFunc(inv_func)
+            inv_func=np.frompyfunc(inv_func)
 
         TransformFactory.__init__(self, func, indims,
                                         outdims, inv_func)
+
+    def transform_non_affine(self, values):
+        # in Transform.transform:
+        #   values would be converted 2d array
+        return self.func(values)
 
 
 class Transform2DSwap(Transform):

@@ -25,6 +25,14 @@ class Plot:
     '''
     class to manage plot task
     '''
+
+    # dict representing simplt plot task
+    #   value is the number of set of datas needed
+    #       None means all
+    simple_plot={
+        'plot': 2, 'scatter': 2, 'errorbar': None,
+        'step': 2, 
+    }
     def __init__(self, xdatas, ydatas=None,
                        xerrs=None, yerrs=None,
                        multip=True, nRowCol=None):
@@ -486,29 +494,7 @@ class Plot:
                 pltFuncAx(*d, *args, **kwargs)
 
     ## simple plot. just show raw data
-    def plot(self, *args, **kwargs):
-        self.gen_plot(self.plotd_list[:2], 
-                      lambda ax: ax.plot,
-                      *args, **kwargs)
-        return self
-
-    def scatter(self, *args, **kwargs):
-        self.gen_plot(self.plotd_list[:2], 
-                      lambda ax: ax.scatter,
-                      *args, **kwargs)
-        return self
-
-    def errorbar(self, *args, **kwargs):
-        self.gen_plot(self.plotd_list, 
-                      lambda ax: ax.errorbar,
-                      *args, **kwargs)
-        return self
-
-    def step(self, *args, **kwargs):
-        self.gen_plot(self.plotd_list[:2], 
-                      lambda ax: ax.step,
-                      *args, **kwargs)
-        return self
+    ### implemented in __getattr__
 
     ## other understanding of data
     ### as arguments of function
@@ -844,7 +830,12 @@ class Plot:
         if prop in ['xlim', 'ylim']:
             prop='get_%s' % prop
             return getattr(self.fig[0], prop)()
-        elif prop in set(['set_xlim', 'set_ylim',
-                          'set_xscale', 'set_yscale',
-                          'set_xticks', 'set_yticks']):
+        elif prop in {'set_xlim', 'set_ylim',
+                      'set_xscale', 'set_yscale',
+                      'set_xticks', 'set_yticks'}:
             return partial(self.proxy_ax_func, prop)
+        elif prop in Plot.simple_plot:
+            num=Plot.simple_plot[prop]
+            return partial(self.gen_plot,
+                           self.plotd_list[:num], 
+                           lambda ax: getattr(ax, prop))
