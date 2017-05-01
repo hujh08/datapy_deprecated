@@ -115,7 +115,7 @@ def ifnone(a, default):
 
 # convert table of datas to aligned string
 def tabStr(datas, fname, field=None,
-                  dname=None, dfield=None, bstr=None,
+                  dname=None, dfield=None, bstr=str,
                   pd=None, fv=None, hsep=None):
     '''
     convert table of datas, that is 2D array, to string
@@ -185,16 +185,14 @@ def tabStr(datas, fname, field=None,
         elif type(dname)==str or\
              hasattr(dname, '__call__'):
             if type(dname)!=str or \
-               dname.find('%')!=-1 or dname.find('{'!=-1):
+               dname.find('%')!=-1 or dname.find('{')!=-1:
                 wrap=keyWrap(dname)
                 dname=[wrap(i) for i in range(ndata)]
         strlist[0].append('')
         for l, d in zip(strlist[1:], dname):
             l.append(d)
     
-    if bstr==None:
-        bstr=str
-    elif type(bstr)==str:
+    if type(bstr)==str:
         bstr=keyWrap(bstr)
             
     strlist[0].extend(fname)

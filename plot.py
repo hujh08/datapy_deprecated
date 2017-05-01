@@ -6,7 +6,6 @@ devise a class to manage plot task
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib.font_manager import FontProperties
 
 from scipy.optimize import curve_fit
 
@@ -17,10 +16,9 @@ from math import ceil
 from functools import partial
 
 from .figure import Figure
-from .plotKit import rectDecomp, gauss1d,\
+from .plotKit import gauss1d,\
                      histStat, cumulStat, gaussStat
-from .toolKit import keyWrap, tabStr,\
-                     infIter, infNone,\
+from .toolKit import infIter, infNone,\
                      isnumber
 
 class Plot:
@@ -468,7 +466,7 @@ class Plot:
         for ax, *ads in zip(self.fig, *datas):
             #if 'collection' in pltFunc.__code__.co_varnames:
             #    kwargs['collection']=objs
-            pltFunc(ax, *ads, *args, **kwargs)
+            pltFunc(ax)(*ads, *args, **kwargs)
 
     ## generic plot method. independent between sets of data
     def gen_plot(self, datas, pltFunc, *args, **kwargs):
@@ -514,141 +512,46 @@ class Plot:
 
     ## other understanding of data
     ### as arguments of function
-    def plotFunc(self, func, key='x',
-                             scope=None,
-                             npoint=10000,
-                             **kwargs):
+    def fcurve(self, func, key='x', scope=(0, 1),
+                     npoint=100, **kwargs):
         '''
         datas in store are arguments of a function
         plot this funcion curve with these arguments
 
         scope: iterable
-            giving the scope of x
+            giving the scope of x,
+                which is represented by fraction of xaxis
 
         npoint: int
-
         '''
-        if scope==None:
-            scope=self.xlim
-
-        def funcArray(ax, datas, func=func,
-                                 scope=scope,
-                                 npoint=npoint, 
-                                 **kwargs):
-            xmax, xmin=scope
-            dx=(xmax-xmin)*1./npoint
-            xd=np.arange(xmin, xmax, dx)
-            yd=func(xd, *datas)
-            return ax.plot(xd, yd, **kwargs)
-
         self.gen_plot([self.plotd_dict[key]],
-                      lambda ax: partial(funcArray, ax),
-                      **kwargs)
+                      lambda ax: ax.fcurve,
+                      func, scope, npoint, **kwargs)
 
     ### as information to print
     #### generic method to print data in figure
-    def printData_gen(self, func, key='x', loc=(0.8, 0.8),
-                            coords='axes fraction',
-                            **kwargs):
+    def dtext(self, func, key='x', **kwargs):
         '''
         datas in store are converted to string through func
         and be printed in  the figure
         '''
-        def printFunc(ax, datas, func=func, loc=loc,
-                            coords=coords,
-                            fontfamily=None,
-                            **kwargs):
-            if 'fontfamily'!=None:
-                font=FontProperties()
-                font.set_family('monospace')
-                kwargs['fontproperties']=font
-            ax.annotate(func(datas), xy=loc,
-                        xycoords=coords, **kwargs)
-
-        self.gen_plot_ax([self.plotd_dict[key]], printFunc,
-                         **kwargs)
+        self.gen_plot_ax([self.plotd_dict[key]],
+                         lambda ax: ax.dtext,
+                         func, **kwargs)
 
     ##### more frequently used method
-    def printData(self, head, field=None,
-                        datasName=None, datasfield=None,
-                        bstr=None,
-                        pd=None, fv=None, hsep=None,
-                        key='x', loc=(0.8, 0.8),
-                        coords='axes fraction',
-                        **kwargs):
-        '''
-        print data with given head
-
-        head: iterable
-
-        field: iterable or None
-            show the scope of data to print
-
-        datasName: iterable
-            description of each set of data
-            only be used when
-                there are more than one sets of data
-
-        bstr: callable
-            convert each data--number or string to string
-
-        pd: bool or None
-            whether to print dname
-
-        fv: bool or None
-            whether to print fname one by one vertically
-
-        hsep: string or None
-            seperator in horizontal row
-        '''
-
-        dataStr=partial(tabStr, fname=head, field=field,
-                            dname=datasName, dfield=datasfield,
-                            bstr=bstr,
-                            pd=pd, fv=fv, hsep=hsep)
-
-        self.printData_gen(dataStr, key=key, loc=loc,
-                            coords=coords, **kwargs)
+    def ttext(self, head, *args, key='x', **kwargs):
+        self.gen_plot_ax([self.plotd_dict[key]],
+                         lambda ax: ax.ttext,
+                         head, *args, **kwargs)
         return self
 
-    # bar plot
-    #   where patches shouldn't overlap,
-    #       different with gen_plot
-    def _bar_plot_ax(self, ax, datas,
-                           xticks=None,
-                           width=0.8,
-                           **kwargs):
-        '''
-        plot bar of datas in one ax
-        '''
-        if len(datas)==0:
-            return
+    def bar(self, key='x', xticks=None,
+                  width=0.8, **kwargs):
 
-        numbar=len(datas[0])
-        xintTicks=np.array(range(numbar))
-
-        ndata=float(len(datas))
-        width=width/ndata
-        shift=-width*(ndata-1)/2.
-        for i, data in enumerate(datas):
-            ax.bar(xintTicks+shift, data, width, **kwargs)
-            shift+=width
-
-        if xticks!=None:
-            ax.set_xticks(xintTicks)
-            ax.set_xticklabels(xticks)
-
-    def bar(self, key='x',
-                  xticks=None,
-                  width=0.8,
-                  **kwargs):
-
-        barfunc=partial(self._bar_plot_ax, 
-                            xticks=xticks, width=width)
-
-        self.gen_plot_ax([self.plotd_dict[key]], barfunc,
+        self.gen_plot_ax([self.plotd_dict[key]],
+                         lambda ax: ax.bars,
                          **kwargs)
-
         return self
 
     ## complicated plot. pre-treatment needed.
@@ -685,7 +588,7 @@ class Plot:
 
         if fit=='g':
             self.statistic(partial(gaussStat))
-            self.plotFunc(gauss1d, **flDict)
+            self.fcurve(gauss1d, **flDict)
 
             if fitAnnot:
                 _faDict={
@@ -695,14 +598,14 @@ class Plot:
                     'coords': 'axes fraction',
                     'ha': 'left',
                     'va': 'center',
-                    'datasName': 'gauss%i',
+                    'dname': 'gauss%i',
                 }
                 if faDict!=None:
                     for i in faDict:
                         _faDict[i]=faDict[i]
-                self.printData(['center', 'sigma'],
-                               field=[1, 2], bstr='%.3f',
-                               **_faDict)
+                self.ttext(['center', 'sigma'],
+                            field=[1, 2], bstr='%.3f',
+                            **_faDict)
 
         return self
 

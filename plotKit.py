@@ -8,6 +8,8 @@ import numpy as np
 from numpy  import histogram
 from scipy.optimize import curve_fit
 
+from matplotlib.transforms import Transform
+
 from functools import reduce
 
 # when plot in multi-panel, determine nrow/ncol
@@ -109,3 +111,156 @@ def gaussStat(x, y, xe, ye, init=None, **kwargs):
         curve_fit(gauss1d, x, y, p0=[I0, mean0, sigma0])
 
     return popt, [None]*3, [None]*3, [None]*3
+
+
+# factory of transform instance through a funciton
+class TransformFactory(Transform):
+    def __init__(self, func, indims, outdims=None,
+                       inv_func=None):
+        '''
+        func: callable
+            operates on array with `indims` elements,
+            return array with `outdims` elements
+
+        inv_func: callable
+            inversive function of func
+
+            inv_func(func(a))=a
+        '''
+        Transform.__init__(self)
+        self.func=func
+        self.inv_func=inv_func
+
+        self.input_dims=indims
+
+        if outdims==None:
+            outdims=indims
+        self.output_dims=outdims
+
+    def inverted(self):
+        if self.inv_func==None:
+            raise NotImplementedError('inverted method '
+                                      'not provided')
+        return TransformFactory(self.inv_func,
+                                self.output_dims,
+                                self.input_dims,
+                                self.func)
+
+    def transform_non_affine(self, values):
+        # in Transform.transform:
+        #   values would be converted 2d array
+        return np.apply_along_axis(self.func, 1, values)
+
+def iterFunc(func):
+    return lambda args: [func(i) for i in args]
+
+class FuncTransform(TransformFactory):
+    '''
+    func handles elements of values independently
+    '''
+    def __init__(self, func, indims, outdims=None,
+                       inv_func=None):
+        '''
+        func, inv_func: callable
+        works on scalar
+        '''
+        func=iterFunc(func)
+        if inv_func!=None:
+            inv_func=iterFunc(inv_func)
+
+        TransformFactory.__init__(self, func, indims,
+                                        outdims, inv_func)
+
+
+class Transform2DSwap(Transform):
+    '''
+    make new transform satisfies:
+        yr, xr=new_transform(y, x)
+        where
+            xr, yr=old_transform(x, y)
+    '''
+    def __init__(self, trans):
+        Transform.__init__(self)
+        self.trans=trans
+        self.input_dims=trans.input_dims
+        self.output_dims=trans.output_dims
+
+    def transform_non_affine(self, values):
+        values=np.c_[values[:, 1], values[:, 0]]
+        res=self.trans.transform(values)
+        return np.c_[res[:, 1], res[:, 0]]
+
+# dynamically obtaining inverted instance of transform
+class invTransform(Transform):
+    '''
+    simulate matplotlib.transforms.TransformWrapper
+        but wrap the inverted of transform, not itself
+    '''
+    # access in monitor: to be delivered to self.trans_inv
+    monitor_get={
+        'transform',
+        'transform_affine', 'transform_non_affine',
+        'transform_path',
+        'transform_path_affine', 'transform_path_non_affine',
+        'get_affine', 'get_matrix',
+        'is_separable', 'is_affine', 'has_inverse',
+    }
+
+    def __init__(self, trans):
+        Transform.__init__(self)
+
+        self.trans=trans
+        self.set_children(trans)
+
+        self.input_dims=trans.output_dims
+        self.output_dims=trans.input_dims
+
+        self._update_trans_inv()
+
+    def _update_trans_inv(self):
+        trans=self.trans.inverted()
+        self.trans_inv=trans
+        self._invalid=0
+
+    def inverted(self):
+        return self.trans
+
+    def frozen(self):
+        return invTransform(self.trans.frozen())
+
+    def set(self, trans):
+        """
+        Replace the current original transform with another one.
+
+        The new child must have the same number of
+            input and output dimensions as the current.
+        """
+        if trans.input_dims!=self.input_dims or\
+           trans.output_dims!=self.output_dims:
+            msg = ('The new trans must have the same number of '
+                   'input and output dimensions as the current.')
+            raise ValueError(msg)
+
+        self.trans=trans
+        self.set_children(trans)
+
+        self._update_trans_inv()
+
+        self.invalidate()
+        self._invalid=0
+
+    def __eq__(self, other):
+        return self.trans.__eq__(other)
+
+    def __str__(self):
+        return 'inverted of '+str(self.trans)
+
+    def __repr__(self):
+        return "invTransform(%r)" % self.trans
+
+    def __getattribute__(self, prop):
+        if prop in invTransform.monitor_get:
+            if self._invalid:
+                self._update_trans_inv()
+            self=self.trans_inv
+        return object.__getattribute__(self, prop)
