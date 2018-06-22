@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+'''
+functions to read text file
+'''
+
+
 def readtxt(fname):
     from .fmt import Format
     data=[]
@@ -29,7 +34,7 @@ def readtxt(fname):
         fields=hdline.split()
         if len(fields)!=len(fmt):
             raise Exception('mismatch fields in first line')
-            
+
         hdfmt=Format(fields)
         if hdfmt.all_isstr() and not fmt.all_isstr():
             head=fields
@@ -40,6 +45,11 @@ def readtxt(fname):
 
     if not fmt.all_isstr():
         list(map(fmt, data))
+        # from multiprocessing.dummy import Pool as ThreadPool
+        # pool=ThreadPool(4)
+        # pool.map(fmt, data)
+        # pool.close()
+        # pool.join()
 
     return head, data, fmt
 

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+'''
+class to represent format in a row
+'''
+
 import re
 
 class FmtType:
