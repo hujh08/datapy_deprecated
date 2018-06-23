@@ -29,15 +29,13 @@ class FmtType:
         else:
             self.ftype=FmtType.STR
 
+    INTRE=re.compile(r'[-+]?\d+$')
     def _isint(self, s):
-        return re.match(r'[-+]?[1-9]\d*$', s)
+        return FmtType.INTRE.match(s)
 
+    FLTRE=re.compile(r'[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?$')
     def _isfloat(self, s):
-        try:
-            float(s)
-            return True
-        except ValueError:
-            return False
+        return FmtType.FLTRE.match(s)
 
     def isstr(self):
         # determine whether this type is str
