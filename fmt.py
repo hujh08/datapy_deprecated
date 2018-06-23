@@ -16,40 +16,32 @@ class FmtType:
     INT=2
 
     CODE={STR: 's', FLT: 'f', INT: 'i'}
+    FUNC={STR: str, FLT: float, INT: int}
+
+    # reg exp
+    INTRE=re.compile(r'[-+]?\d+$')
+    FLTRE=re.compile(r'[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?$')
 
     def __init__(self, s):
         # s is in type of string
         if type(s)!=str:
             raise Exception('expect str type, but got %s' % type(s))
 
-        if self._isint(s):
+        if FmtType.INTRE.match(s):
             self.ftype=FmtType.INT
-        elif self._isfloat(s):
+        elif FmtType.FLTRE.match(s):
             self.ftype=FmtType.FLT
         else:
             self.ftype=FmtType.STR
 
-    INTRE=re.compile(r'[-+]?\d+$')
-    def _isint(self, s):
-        return FmtType.INTRE.match(s)
+        self.func=FmtType.FUNC[self.ftype]
 
-    FLTRE=re.compile(r'[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?$')
-    def _isfloat(self, s):
-        return FmtType.FLTRE.match(s)
-
+    # determine whether this type is str
     def isstr(self):
-        # determine whether this type is str
         return self.ftype==FmtType.STR
 
     def __call__(self, s):
-        if self.ftype==FmtType.INT:
-            return int(s)
-        elif self.ftype==FmtType.FLT:
-            return float(s)
-        elif self.ftype==FmtType.STR:
-            return str(s)
-
-        raise Exception('unsupported field type')
+        return self.func(s)
 
     # comparison operators
     def __lt__(self, other):
