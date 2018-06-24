@@ -24,4 +24,7 @@ class Data:
 
     # to numpy.record
     def array(self):
-        return self.fmt.array(self.data, self.head)
+        import numpy as np
+        dtype=self.fmt.dtype(self.head)
+        data=list(map(tuple, self.data))
+        return np.array(data, dtype=dtype)

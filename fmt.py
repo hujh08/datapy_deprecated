@@ -5,7 +5,6 @@ class to represent format in a row
 '''
 
 import re
-import numpy as np
 
 class FmtType:
     '''
@@ -128,19 +127,5 @@ class Format:
         fmt: format for each column
             works only when names is None
         '''
+        import numpy as np
         return np.dtype({'names': names, 'formats': self.formats()})
-
-    def array(self, data, names):
-        '''
-        convert 2-d list to numpy array
-        '''
-        dtype=self.dtype(names)
-
-        data=list(map(tuple, data))
-        return np.array(data, dtype=dtype)
-
-    def farray(self, names):
-        '''
-        return function to convert list
-        '''
-        return lambda data: self.array(data, names)
