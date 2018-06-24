@@ -5,6 +5,7 @@ class to represent format in a row
 '''
 
 import re
+import numpy as np
 
 class FmtType:
     '''
@@ -17,6 +18,8 @@ class FmtType:
 
     CODE={STR: 's', FLT: 'f', INT: 'i'}
     FUNC={STR: str, FLT: float, INT: int}
+    # dtype code in numpy
+    DTYPE={STR: 'O', FLT: 'f8', INT: 'i8'}
 
     # reg exp
     INTRE=re.compile(r'[-+]?\d+$')
@@ -35,6 +38,10 @@ class FmtType:
             self.ftype=FmtType.STR
 
         self.func=FmtType.FUNC[self.ftype]
+
+    # about numpy
+    def dtype(self):
+        return FmtType.DTYPE[self.ftype]
 
     # determine whether this type is str
     def isstr(self):
@@ -111,3 +118,29 @@ class Format:
 
     def __len__(self):
         return len(self.fmt)
+
+    # about numpy
+    def formats(self):
+        return [t.dtype() for t in self.fmt]
+
+    def dtype(self, names):
+        '''
+        fmt: format for each column
+            works only when names is None
+        '''
+        return np.dtype({'names': names, 'formats': self.formats()})
+
+    def array(self, data, names):
+        '''
+        convert 2-d list to numpy array
+        '''
+        dtype=self.dtype(names)
+
+        data=list(map(tuple, data))
+        return np.array(data, dtype=dtype)
+
+    def farray(self, names):
+        '''
+        return function to convert list
+        '''
+        return lambda data: self.array(data, names)
