@@ -70,6 +70,14 @@ EOF
 #     echo -e "\tcp $fname \$(moddir)/$fname">>$makef
 # done
 
+for subd in io
+do
+    echo "cp dir: $subd ==> $libdir/$package/$subd"
+
+    echo -e "\t[ -d \$(moddir)/$subd ] || mkdir \$(moddir)/$subd" >> $makef
+    echo -e "\tcp -r $subd/* \$(moddir)/$subd" >> $makef
+done
+
 echo >>$makef
 echo "clean:">>$makef
 echo -e "\trm -rf \$(moddir)/*">>$makef
