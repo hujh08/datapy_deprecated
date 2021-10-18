@@ -326,18 +326,22 @@ def levelnames_by_shape(shape, formatter_levelno=None,
     func_onelevel=partial(names_of_onelevel, **kw)
 
     # dict of level names indexed by level dim
-    dict_leveldim={}
+    map_dim_lab={}   # map of dim to a lab
     for t in pool_level_labels:
-        assert not is_scalar_type(t)
-        assert len(t) not in dict_leveldim  # no duplicated length
+        assert not isinstance(t, numbers.Number)  # not support number
 
-        dict_leveldim[len(t)]=t
+        if isinstance(t, str):
+            t=list(t)
+
+        assert len(t) not in map_dim_lab  # no duplicated length
+
+        map_dim_lab[len(t)]=t
 
     # construct names level by level
     levels=[]
     for n in shape:
-        if n in dict_leveldim:
-            names=dict_leveldim[n]
+        if n in map_dim_lab:
+            names=map_dim_lab[n]
         else:
             names=func_onelevel(n)
 
