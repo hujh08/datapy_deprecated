@@ -86,13 +86,13 @@ def load_txt(fileobj, line_nrow=None, header_comment=False,
         else:
             t=kwargs['skiprows']
 
-            if isinstance(t, numbers.Integral):
-                kwargs['skiprows']=list(range(t))+skiprows
-            elif callable(t):
+            if callable(t):
                 kwargs['skiprows']=\
                     lambda x, f0=t, s0=skiprows: x in s0 or f0(x)
             else:
-                kwargs['skiprows']=list(t)+skiprows
+                if isinstance(t, numbers.Integral):
+                    t=list(range(t))
+                kwargs['skiprows']=skiprows.union(list(t))
 
     # load text through `pd.read_csv`
     return pd.read_csv(fileobj, delim_whitespace=delim_whitespace,
