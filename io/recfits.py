@@ -11,8 +11,11 @@ from functools import partial
 import numpy as np
 import pandas as pd
 
-def load_rec_fits(fname, **kwargs):
+def load_rec_fits(fname, return_rec=False, **kwargs):
     d=load_fits_data(fname)
+
+    if return_rec:   # only return record, not df
+        return d
 
     return rec_to_df(d, **kwargs)
 
@@ -87,7 +90,7 @@ def rec_to_df(record, fields_ext=None, fields_exclude=set(),
                     used to support flexible column name constructing
 
                 if None, use default constructor:
-                    function `tuples_multilevel_colname`
+                    function produced by `factory_tuples_multilevel_colname`
 
                 if callable,
                     input (name, shape) of the field and some optional keywords
@@ -168,7 +171,7 @@ def rec_to_df(record, fields_ext=None, fields_exclude=set(),
     kw=dict(formatter_levelno=formatter_levelno,
             pool_level_labels=pool_level_labels,
             level_suba_squeeze=level_suba_squeeze)
-    constuctor_mlc_default=partial(tuples_multilevel_colname, **kw)
+    constuctor_mlc_default=factory_tuples_multilevel_colname(**kw)
 
     if constructor_multilevel_colname is None:
         constructor_multilevel_colname=constuctor_mlc_default
@@ -280,21 +283,29 @@ def load_fits_data(fname):
     return fits.getdata(fname)
 
 ### multilevel colnames
-def tuples_multilevel_colname(name, shape, **kwargs):
+def factory_tuples_multilevel_colname(**kwargs):
     '''
-        get tuples of name of multilevel column
+        factory to produce function
+            which is used to get tuples of name of multilevel column
 
         optional `kwargs`: all for `levelnames_by_shape`
             see it for details
     '''
-    names_suba=levelnames_by_shape(shape, **kwargs)
+    f_suba=factory_levelnames_by_shape(**kwargs)
 
-    return combine_name_field_suba(name, names_suba)
+    # function to construct tuples of level name
+    def f(name, shape):
+        names_suba=f_suba(shape)
 
-def levelnames_by_shape(shape, formatter_levelno=None,
+        return combine_name_field_suba(name, names_suba)
+
+    return f
+
+def factory_levelnames_by_shape(formatter_levelno=None,
         pool_level_labels=[], level_suba_squeeze=False):
     '''
-        level names for a given shape of sub-array
+        factory to produce function
+            which is used to level names for a given shape of sub-array
 
         Parameters:
             formatter_levelno: None or str
@@ -317,9 +328,6 @@ def levelnames_by_shape(shape, formatter_levelno=None,
             level_suba_squeeze: bool, default `False`
                 whether or not squeeze sub-array levels
     '''
-    # not empty and all positive integer
-    assert len(shape)>=1
-    assert np.all([isinstance(t, int) and t>0 for t in shape])
 
     # for one-level
     kw=dict(formatter_levelno=formatter_levelno)
@@ -337,22 +345,31 @@ def levelnames_by_shape(shape, formatter_levelno=None,
 
         map_dim_lab[len(t)]=t
 
-    # construct names level by level
-    levels=[]
-    for n in shape:
-        if n in map_dim_lab:
-            names=map_dim_lab[n]
-        else:
-            names=func_onelevel(n)
-
-        levels.append(names)
-
-    inds=pd.MultiIndex.from_product(levels)
-
     if level_suba_squeeze:
-        inds=['_'.join(map(str, t)) for t in inds]
+        f_squeeze=lambda x: ['_'.join(map(str, t)) for t in x]
+    else:
+        f_squeeze=lambda x: x
 
-    return inds
+    # function to construct names level by level
+    def f(shape):
+        # not empty and all positive integer
+        assert len(shape)>=1
+        assert np.all([isinstance(t, int) and t>0 for t in shape])
+
+        levels=[]
+        for n in shape:
+            if n in map_dim_lab:
+                names=map_dim_lab[n]
+            else:
+                names=func_onelevel(n)
+
+            levels.append(names)
+
+        inds=pd.MultiIndex.from_product(levels)
+
+        return f_squeeze(inds)
+
+    return f
 
 def names_of_onelevel(n, formatter_levelno=None):
     '''
