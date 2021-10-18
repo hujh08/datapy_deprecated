@@ -25,7 +25,7 @@ def rec_to_df(record, fields_ext=None, fields_exclude=set(),
                 names_multilevel_by_field={},
                 constructor_multilevel_colname=None,
                 ## parameters for default constructor
-                formatter_levelno=None, labels_of_leveldim=[],
+                formatter_levelno=None, pool_level_labels=[],
                 level_suba_squeeze=False,
                 ## squeeze multi-level
                 colname_squeeze=False,
@@ -101,7 +101,7 @@ def rec_to_df(record, fields_ext=None, fields_exclude=set(),
             # kw_default_mlc: dict
             #     optional keyword arguments for default constructor
 
-            formatter_levelno, labels_of_leveldim, level_suba_squeeze:
+            formatter_levelno, pool_level_labels, level_suba_squeeze:
                 optional parameters for default constructor
 
             ==== construct of multilevel name ================================
@@ -166,7 +166,7 @@ def rec_to_df(record, fields_ext=None, fields_exclude=set(),
 
     # constructor of multilevel column name
     kw=dict(formatter_levelno=formatter_levelno,
-            labels_of_leveldim=labels_of_leveldim,
+            pool_level_labels=pool_level_labels,
             level_suba_squeeze=level_suba_squeeze)
     constuctor_mlc_default=partial(tuples_multilevel_colname, **kw)
 
@@ -292,7 +292,7 @@ def tuples_multilevel_colname(name, shape, **kwargs):
     return combine_name_field_suba(name, names_suba)
 
 def levelnames_by_shape(shape, formatter_levelno=None,
-        labels_of_leveldim=[], level_suba_squeeze=False):
+        pool_level_labels=[], level_suba_squeeze=False):
     '''
         level names for a given shape of sub-array
 
@@ -303,12 +303,16 @@ def levelnames_by_shape(shape, formatter_levelno=None,
                 if str, must be format string, like 'c%i',
                     which only accpets one integer as input
 
-            labels_of_leveldim: iterable
-                contain vectors with different length
-                    one vector correspond to a level with same dim
+            pool_level_labels: iterable
+                pool of level labels
+                    containing list-like object with different length
+                        one vector correspond to a level with same dim
 
                 elements in the set must not be scalar type
                     and must have different length
+
+                unknown level could try to get labels from this pool,
+                    which matches its dim
 
             level_suba_squeeze: bool, default `False`
                 whether or not squeeze sub-array levels
@@ -323,7 +327,7 @@ def levelnames_by_shape(shape, formatter_levelno=None,
 
     # dict of level names indexed by level dim
     dict_leveldim={}
-    for t in labels_of_leveldim:
+    for t in pool_level_labels:
         assert not is_scalar_type(t)
         assert len(t) not in dict_leveldim  # no duplicated length
 
