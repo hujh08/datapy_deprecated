@@ -9,7 +9,7 @@ import re
 
 import pandas as pd
 
-# text file
+# read text
 def load_txt(fileobj, line_nrow=None, header_comment=False,
                 delim_whitespace=True, comment='#', **kwargs):
     '''
@@ -134,3 +134,20 @@ def line_comment_strip(line, comment='#'):
     assert len(comment)==1  # only support single char
 
     return re.sub(r'[%s].*$' % comment, '', line)
+
+# write text
+def save_to_txt(df, buf=None, index=False, **kwargs):
+    '''
+        save DataFrame to text file
+
+        wrap of method `DataFrame.to_string`
+
+        Parameters:
+            df: DataFrame
+                object to save
+
+            buf: str, Path or StringIO-like, or default None
+                buffer to write to. same as `to_string`
+                if None, output is returned
+    '''
+    return df.to_string(buf, index=index, **kwargs)
