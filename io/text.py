@@ -11,7 +11,8 @@ import pandas as pd
 
 # read text
 def load_txt(fileobj, line_nrow=None, header_comment=False,
-                delim_whitespace=True, comment='#', **kwargs):
+                delim_whitespace=True, comment='#', 
+                fields=None, **kwargs):
     '''
         load text file
 
@@ -42,6 +43,9 @@ def load_txt(fileobj, line_nrow=None, header_comment=False,
                         only support single header line
                             and whitespace separation in head line
 
+            fields: list-like or callable, optional
+                columns to extract,
+                    alias of `usecols`
     '''
     skiprows=set()   #  for nrows and header line
     if line_nrow is not None:  # if given, fetch it
@@ -93,6 +97,12 @@ def load_txt(fileobj, line_nrow=None, header_comment=False,
                 if isinstance(t, numbers.Integral):
                     t=list(range(t))
                 kwargs['skiprows']=skiprows.union(list(t))
+
+    # alias of keywords
+    if fields is not None:
+        assert 'usecols' not in kwargs  # avoid conflict
+
+        kwargs['usecols']=fields
 
     # load text through `pd.read_csv`
     return pd.read_csv(fileobj, delim_whitespace=delim_whitespace,
